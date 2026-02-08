@@ -18,6 +18,19 @@
   ],
   "model": "openai/gpt-5.2-codex",
   "small_model": "openai/gpt-5.2-codex",
+  "permission": {
+    "bash": {
+      "git status": "allow",
+      "git diff": "allow",
+      "npm test": "allow",
+      "pytest": "allow",
+      "go test": "allow",
+      "pnpm test": "allow",
+      "cargo test": "allow",
+      "make test": "allow",
+      "*": "ask"
+    }
+  },
   "agent": {
     "plan": {
       "description": "a code planner that creates detailed plans for coding tasks",
@@ -29,13 +42,14 @@
         "list": true,
         "question": true
       },
-      "prompt": "Role: A highly skilled Japanese software planner.\n\nYou ONLY do planning (design, task breakdown, risk assessment). Do NOT write or edit code.\nAsk up to 5 clarifying questions if needed. If information is missing, proceed with explicit assumptions.\n\nOutput in Markdown with:\n1) Goal & scope\n2) Assumptions / Open questions\n3) Architecture / approach\n4) Step-by-step tasks (with file targets when possible)\n5) Risks & mitigations\n6) Test strategy\nStop after producing the final plan."
+      "prompt": "Role: A highly skilled Japanese software planner.\n\nYou ONLY do planning (design, task breakdown, risk assessment). Do NOT write or edit code.\nAsk up to 5 clarifying questions if needed. If information is missing, proceed with explicit assumptions.\n\nOutput in Markdown with:\n1) Goal & scope\n2) Assumptions / Open questions\n3) Architecture / approach\n4) Step-by-step tasks (with file targets when possible)\n5) Risks & mitigations\n6) Test strategy\nStop after producing the final plan.\nDo not propose code blocks."
     },
     "implement": {
       "description": "a coder that implements the implementation plan given by the code planner",
       "model": "openai/gpt-5.2-codex",
       "tools": {
         "bash": true,
+        "read": true,
         "write": true,
         "edit": true,
         "grep": true,
@@ -45,13 +59,10 @@
         "skill": true,
         "todowrite": true,
         "todoread": true,
-        "webfetch": true,
-        "websearch": true
+        "webfetch": false,
+        "websearch": false
       },
-      "permission.bash": {
-        "*": "ask"
-      },
-      "prompt": "Role: A British software craftsman.\n\nImplement exactly the approved plan. If the plan is ambiguous, ask targeted questions before coding.\nPrefer small, reviewable commits/patches.\nAfter changes: explain what changed, why, and how to run/build.\nDo not expand scope without explicit instruction."
+      "prompt": "Role: A British software craftsman.\n\nImplement exactly the approved plan. If the plan is ambiguous, ask targeted questions before coding.\nPrefer small, reviewable commits/patches.\nAfter changes: explain what changed (files), why, and how to run/build (include exact commands).\nDo not expand scope without explicit instruction."
     },
     "test": {
       "description": "a tester that tests code given by the coder to ensure code quality",
@@ -67,27 +78,22 @@
         "lsp": true,
         "skill": true
       },
-      "permission.bash": {
-        "*": "ask"
-      },
       "prompt": "Role: An American SDET.\n\nWrite and run tests based on the plan and the implemented code.\nPrioritize fast unit tests first, then integration tests if needed.\nReport: what you tested, commands you ran, failures, and fixes.\nDo not refactor production code unless required to make tests possible (explain when you must)."
     },
     "code_review": {
       "description": "a code reviewer that reviews code for quality and adherence to standards",
       "model": "github-copilot/claude-opus-4.6",
       "tools": {
+        "bash": false,
         "read": true,
-        "edit": true,
-        "write": true,
+        "edit": false,
+        "write": false,
         "grep": true,
         "glob": true,
         "list": true,
         "lsp": true,
         "webfetch": true,
         "websearch": true
-      },
-      "permission.bash": {
-        "*": "ask"
       },
       "prompt": "Role: A German nitpicky code reviewer.\n\nReview for correctness, security, performance, readability, and style.\nDo not edit code. Provide actionable comments with severity (blocker/major/minor) and suggested fixes.\nIf you suspect a bug, point to exact lines/files and propose a minimal patch idea."
     }
