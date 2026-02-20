@@ -6,56 +6,62 @@
   "theme": "opencode",
   "autoupdate": true,
   "disabled_providers": ["opencode"],
-
   "model": "openai/gpt-5.2-codex",
   "small_model": "openai/gpt-5.2-codex",
-
   "plugin": ["opencode-antigravity-auth@latest"],
-
   "provider": {
     "google": {
       "models": {
-        "antigravity-gemini-3-pro": {
-          "name": "Gemini 3 Pro (Antigravity)",
-          "limit": { "context": 1048576, "output": 65535 },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          },
-          "variants": {
-            "low": { "thinkingLevel": "low" },
-            "high": { "thinkingLevel": "high" }
-          }
-        },
         "antigravity-gemini-3.1-pro": {
           "name": "Gemini 3.1 Pro (Antigravity)",
-          "limit": { "context": 1048576, "output": 65535 },
+          "limit": {
+            "context": 1048576,
+            "output": 65535
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
           },
           "variants": {
-            "low": { "thinkingLevel": "low" },
-            "high": { "thinkingLevel": "high" }
+            "low": {
+              "thinkingLevel": "low"
+            },
+            "high": {
+              "thinkingLevel": "high"
+            }
           }
         },
         "antigravity-gemini-3-flash": {
           "name": "Gemini 3 Flash (Antigravity)",
-          "limit": { "context": 1048576, "output": 65536 },
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
           },
           "variants": {
-            "minimal": { "thinkingLevel": "minimal" },
-            "low": { "thinkingLevel": "low" },
-            "medium": { "thinkingLevel": "medium" },
-            "high": { "thinkingLevel": "high" }
+            "minimal": {
+              "thinkingLevel": "minimal"
+            },
+            "low": {
+              "thinkingLevel": "low"
+            },
+            "medium": {
+              "thinkingLevel": "medium"
+            },
+            "high": {
+              "thinkingLevel": "high"
+            }
           }
         },
         "antigravity-claude-sonnet-4-6": {
           "name": "Claude Sonnet 4.6 (Antigravity)",
-          "limit": { "context": 200000, "output": 64000 },
+          "limit": {
+            "context": 200000,
+            "output": 64000
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
@@ -63,43 +69,33 @@
         },
         "antigravity-claude-opus-4-6-thinking": {
           "name": "Claude Opus 4.6 Thinking (Antigravity)",
-          "limit": { "context": 200000, "output": 64000 },
+          "limit": {
+            "context": 200000,
+            "output": 64000
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
           },
           "variants": {
-            "low": { "thinkingConfig": { "thinkingBudget": 8192 } },
-            "max": { "thinkingConfig": { "thinkingBudget": 32768 } }
-          }
-        },
-        "gemini-2.5-flash": {
-          "name": "Gemini 2.5 Flash (Gemini CLI)",
-          "limit": { "context": 1048576, "output": 65536 },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          }
-        },
-        "gemini-2.5-pro": {
-          "name": "Gemini 2.5 Pro (Gemini CLI)",
-          "limit": { "context": 1048576, "output": 65536 },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "low": {
+              "thinkingConfig": {
+                "thinkingBudget": 8192
+              }
+            },
+            "max": {
+              "thinkingConfig": {
+                "thinkingBudget": 32768
+              }
+            }
           }
         },
         "gemini-3-flash-preview": {
           "name": "Gemini 3 Flash Preview (Gemini CLI)",
-          "limit": { "context": 1048576, "output": 65536 },
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          }
-        },
-        "gemini-3-pro-preview": {
-          "name": "Gemini 3 Pro Preview (Gemini CLI)",
-          "limit": { "context": 1048576, "output": 65535 },
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
@@ -107,7 +103,10 @@
         },
         "gemini-3.1-pro-preview": {
           "name": "Gemini 3.1 Pro Preview (Gemini CLI)",
-          "limit": { "context": 1048576, "output": 65535 },
+          "limit": {
+            "context": 1048576,
+            "output": 65535
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
@@ -115,7 +114,10 @@
         },
         "gemini-3.1-pro-preview-customtools": {
           "name": "Gemini 3.1 Pro Preview Custom Tools (Gemini CLI)",
-          "limit": { "context": 1048576, "output": 65535 },
+          "limit": {
+            "context": 1048576,
+            "output": 65535
+          },
           "modalities": {
             "input": ["text", "image", "pdf"],
             "output": ["text"]
@@ -137,8 +139,15 @@
       "*": "ask"
     }
   },
-
   "agent": {
+    "build": {
+      "mode": "subagent",
+      "hidden": true
+    },
+    "plan": {
+      "mode": "subagent",
+      "hidden": true
+    },
     "01_spec_design": {
       "mode": "primary",
       "description": "spec designer (gemini 3.1 pro). prepares exact context for planning; delegates Markdown to summary agent",
@@ -159,11 +168,14 @@
           "*": "deny",
           "summary": "allow",
           "websearch": "allow"
+        },
+        "edit": {
+          "*": "allow",
+          "*.md": "deny"
         }
       },
-      "prompt": "Role: Japanese spec designer.\n\nGoal: Produce a precise spec package for the planning agent.\n\nRules:\n- NEVER create/edit/delete Markdown files yourself.\n- If AGENTS.md is missing, ask the 'summary' agent to create it in the project root.\n- Summarize requirements into AGENTS.md via 'summary' agent.\n- Then hand off a compact, unambiguous spec to the 'plan' agent.\n- If anything is missing, ask up to 5 targeted questions; otherwise proceed with explicit assumptions.\n\nOutput (in chat):\n1) Finalized requirements (bullets)\n2) Interfaces / constraints\n3) Edge cases\n4) Acceptance criteria\nStop."
+      "prompt": "Role: Japanese spec designer.\n\nGoal: Produce a precise spec package for the planning agent.\n\nRules:\n- NEVER create/edit/delete Markdown files yourself.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- If you need to search the web, ask the `websearch` subagent.\n- If AGENTS.md is missing, ask the 'summary' agent to create it in the project root.\n- Summarize requirements into AGENTS.md via 'summary' agent.\n- Then hand off a compact, unambiguous spec to the 'plan' agent.\n- If anything is missing, ask up to 5 targeted questions; otherwise proceed with explicit assumptions.\n\nOutput (in chat):\n1) Finalized requirements (bullets)\n2) Interfaces / constraints\n3) Edge cases\n4) Acceptance criteria\nStop."
     },
-
     "02_plan": {
       "mode": "primary",
       "description": "implementation planner (opus 4.6 via github-copilot). creates agent-todo.md via summary agent",
@@ -183,11 +195,14 @@
         "task": {
           "*": "deny",
           "summary": "allow"
+        },
+        "edit": {
+          "*": "allow",
+          "*.md": "deny"
         }
       },
-      "prompt": "Role: Japanese implementation planner.\n\nYou ONLY do planning. Do NOT write or edit code.\n\nRules:\n- NEVER create/edit/delete Markdown yourself.\n- Ask the 'summary' agent to create/overwrite ./agent-todo.md in repo root.\n- agent-todo.md must have exactly these sections:\n  - Implement Plan\n  - Test Plan\n  - (Optional) Notes\n- Use checklists with [ ] for each actionable item.\n- Ensure tasks reference files/paths when possible.\n\nOutput in chat:\n1) Plan summary\n2) What to put into agent-todo.md (structured)\nStop."
+      "prompt": "Role: Japanese implementation planner.\n\nYou ONLY do planning. Do NOT write or edit code.\n\nRules:\n- NEVER create/edit/delete Markdown yourself.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- Ask the 'summary' agent to create/overwrite ./agent-todo.md in repo root.\n- agent-todo.md must have exactly these sections:\n  - Implement Plan\n  - Test Plan\n  - (Optional) Notes\n- Use checklists with [ ] for each actionable item.\n- Ensure tasks reference files/paths when possible.\n\nOutput in chat:\n1) Plan summary\n2) What to put into agent-todo.md (structured)\nStop."
     },
-
     "03_implement": {
       "mode": "primary",
       "description": "implementer (codex-5.2). implements based on agent-todo.md Implement Plan; checklist updates delegated to summary agent",
@@ -211,11 +226,14 @@
         "task": {
           "*": "deny",
           "summary": "allow"
+        },
+        "edit": {
+          "*": "allow",
+          "*.md": "deny"
         }
       },
-      "prompt": "Role: software implementer.\n\nImplement based on ./agent-todo.md (Implement Plan).\n\nRules:\n- Do NOT edit/create/delete any Markdown files (including agent-todo.md, AGENTS.md). For checklist updates, ask the 'summary' agent.\n- After finishing each item, tell 'summary' exactly which checkbox to mark as done.\n- Keep changes minimal and reviewable.\n\nAfter changes, report:\n- Files changed\n- Why\n- How to run/build (exact commands)\nStop."
+      "prompt": "Role: software implementer.\n\nImplement based on ./agent-todo.md (Implement Plan).\n\nRules:\n- Do NOT edit/create/delete any Markdown files (including agent-todo.md, AGENTS.md). For checklist updates, ask the 'summary' agent.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- After finishing each item, tell 'summary' exactly which checkbox to mark as done.\n- Keep changes minimal and reviewable.\n\nAfter changes, report:\n- Files changed\n- Why\n- How to run/build (exact commands)\nStop."
     },
-
     "04_test": {
       "mode": "primary",
       "description": "tester (local Qwen). adds tests based on Test Plan, runs them, summarizes results; Markdown updates delegated to summary agent",
@@ -237,11 +255,14 @@
         "task": {
           "*": "deny",
           "summary": "allow"
+        },
+        "edit": {
+          "*": "allow",
+          "*.md": "deny"
         }
       },
-      "prompt": "Role: SDET.\n\nUse ./agent-todo.md (Test Plan) as source of truth.\n\nRules:\n- Do NOT edit/create/delete Markdown files. Ask the 'summary' agent to update agent-todo.md checkboxes and to write test result summaries.\n- Prefer fast unit tests first.\n- Run tests and capture commands + key outputs.\n\nReport:\n- Tests added (files)\n- Commands run\n- Failures + fixes\n- Summary for summary-agent to paste\nStop."
+      "prompt": "Role: SDET.\n\nUse ./agent-todo.md (Test Plan) as source of truth.\n\nRules:\n- Do NOT edit/create/delete Markdown files. Ask the 'summary' agent to update agent-todo.md checkboxes and to write test result summaries.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- Prefer fast unit tests first.\n- Run tests and capture commands + key outputs.\n\nReport:\n- Tests added (files)\n- Commands run\n- Failures + fixes\n- Summary for summary-agent to paste\nStop."
     },
-
     "05_code_review": {
       "mode": "primary",
       "description": "reviewer (opus 4.6). checks completion vs agent-todo.md and code quality; if OK asks summary agent to delete agent-todo.md",
@@ -258,16 +279,19 @@
         "webfetch": false,
         "websearch": false
       },
-       "permission": {
+      "permission": {
         "task": {
           "*": "deny",
           "summary": "allow",
           "websearch": "allow"
+        },
+        "edit": {
+          "*": "allow",
+          "*.md": "deny"
         }
       },
-      "prompt": "Role: strict code reviewer.\n\nReview the repository vs ./agent-todo.md completion.\n\nRules:\n- Do NOT edit code or Markdown.\n- Verify requirements are met; assess maintainability and security.\n- Output findings with severity: blocker/major/minor.\n- If everything is OK, instruct the 'summary' agent to delete ./agent-todo.md.\nStop."
+      "prompt": "Role: strict code reviewer.\n\nReview the repository vs ./agent-todo.md completion.\n\nRules:\n- Do NOT edit code or Markdown.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- If you need to search the web, ask the `websearch` subagent.\n- Verify requirements are met; assess maintainability and security.\n- Output findings with severity: blocker/major/minor.\n- If everything is OK, instruct the 'summary' agent to delete ./agent-todo.md.\nStop."
     },
-
     "websearch": {
       "mode": "subagent",
       "hidden": true,
@@ -281,9 +305,13 @@
         "edit": false,
         "bash": false
       },
+      "permission": {
+        "edit": {
+          "*": "deny"
+        }
+      },
       "prompt": "Role: web researcher.\n\nUse websearch/webfetch to find primary sources.\nReturn:\n- short answer\n- key citations (URLs)\n- extracted facts (bullets)\nNo code."
     },
-
     "summary": {
       "mode": "subagent",
       "hidden": true,
@@ -300,7 +328,39 @@
         "websearch": false,
         "webfetch": false
       },
+      "permission": {
+        "edit": {
+          "*.md": "allow",
+          "*": "deny"
+        }
+      },
       "prompt": "Role: repo documentation editor.\n\nYou are the ONLY agent allowed to create/edit/delete Markdown files (AGENTS.md, agent-todo.md, reports).\n\nRules:\n- Apply requested edits exactly.\n- Keep Markdown structured and compact.\n- When updating checklists, only flip the requested items.\nStop."
+    },
+    "ask": {
+      "mode": "primary",
+      "description": "fallback agent for asking user questions when agents are uncertain; also used for user-initiated questions",
+      "model": "google/antigravity-gemini-3-flash",
+      "tools": {
+        "question": true,
+        "read": false,
+        "write": false,
+        "edit": false,
+        "grep": false,
+        "glob": false,
+        "list": false,
+        "bash": false,
+        "websearch": false,
+        "webfetch": false
+      },
+      "permission": {
+        "task": {
+          "*": "deny",
+          "question": "allow"
+        },
+        "edit": {
+          "*": "deny"
+        }
+      }
     }
   }
 }
