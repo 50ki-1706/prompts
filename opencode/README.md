@@ -1,5 +1,11 @@
 # opencode config
 
+
+## symlink(ubuntu)
+```bash
+ln -s ~/Dev/Tools/prompts/opencode/AGENTS.md  ~/.config/opencode
+ln -s ~/Dev/Tools/prompts/opencode/opencode.json ~/.config/opencode
+```
 ## opencode-sync-prompts(~/.local/bin/opencode-sync-prompts)
 
 promptsファイルからopencode.jsonのpromptを更新するシェルスクリプト

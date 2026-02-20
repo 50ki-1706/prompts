@@ -9,10 +9,12 @@
   },
   "theme": "opencode",
   "autoupdate": true,
-  "enabled_providers": [
-    "openai",
-    "github-copilot"
-  ],
+  // "enabled_providers": [
+  //   "openai",
+  //   "github-copilot",
+  //   "azure-gpt",
+  //   "anthropic"
+  // ],
   "disabled_providers": [
     "opencode"
   ],
