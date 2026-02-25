@@ -132,11 +132,11 @@ graph TD
 ## エージェント構成
 
 ### 1. クイック実行フェーズ（メイン：fast）
-- **fast (Primary)**: 単発のコード修正・コード調査・小さな実装変更向けの高速エージェント。依頼を `bug_fix / research / coding` に分類し、必要最小限のサブエージェントへ委譲する。（モデル: `google/gemini-3.1-pro-customtools`）
+- **fast (Primary)**: 単発のコード修正・コード調査・小さな実装変更向けの高速エージェント。依頼を `bug_fix / research / coding` に分類し、必要最小限のサブエージェントへ委譲する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
 
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
-- **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/gemini-3.1-pro-preview-customtools`）
+- **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/antigravity-gemini-3-flash-preview`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3-flash-preview`）
 - **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.2-codex`）
 

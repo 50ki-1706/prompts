@@ -169,23 +169,6 @@
               "text"
             ]
           }
-        },
-        "gemini-3.1-pro-customtools": {
-          "name": "Gemini 3.1 Pro Custom Tools (Gemini CLI)",
-          "limit": {
-            "context": 1048576,
-            "output": 65535
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          }
         }
       }
     }
@@ -226,7 +209,7 @@
     },
     "fast": {
       "mode": "primary",
-      "model": "google/gemini-3.1-pro-customtools",
+      "model": "google/gemini-3.1-pro-preview-customtools",
       "description": "Primary fast-path agent for single-shot code fixes, code investigation, and small coding tasks.",
       "tools": {
         "read": true,
@@ -297,7 +280,7 @@
     },
     "explore": {
       "mode": "subagent",
-      "model": "google/gemini-3.1-pro-preview-customtools",
+      "model": "google/antigravity-gemini-3-flash-preview",
       "description": "Read-only repository investigation agent.",
       "tools": {
         "read": true,
