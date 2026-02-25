@@ -21,7 +21,16 @@
 
 ## Operational Safety Rules
 
-### 4. High-Risk Operations Require Explicit Approval
+### 4. Strict Workflow Gates
+
+To ensure safe and accurate execution, all agents must strictly adhere to the following workflow gates:
+
+- **Specification Gate**: Do not proceed to planning until all user questions and ambiguities are resolved.
+- **Knowledge Gate**: Always research unknowns online (`internet_research`) before including them in any plan.
+- **Draft Confirmation Gate**: **STOP all work** and do not proceed to implementation until the user explicitly approves the draft plan.
+- **Review Gate**: Plans and code are not considered complete until approved by the respective reviewer agents (`plan_reviewer`, `code_reviewer`).
+
+### 5. High-Risk Operations Require Explicit Approval
 
 Before executing any operation that involves:
 
@@ -37,7 +46,7 @@ Before executing any operation that involves:
 3. **STOP all work** until the user responds with "y".
 4. Only proceed after receiving explicit approval.
 
-### 5. Problem Recovery Requires User Approval
+### 6. Problem Recovery Requires User Approval
 
 When the initial implementation approach encounters problems (e.g., directory not found, errors, unexpected behavior):
 
@@ -48,13 +57,13 @@ When the initial implementation approach encounters problems (e.g., directory no
 
 ## User Intent Priority
 
-### 6. Preserve User Instructions
+### 7. Preserve User Instructions
 
 - Do not modify or reinterpret user instructions independently.
 - User intent takes priority over agent assumptions.
 - If clarification is needed, ask before acting.
 
-### 7. Improvement Suggestions
+### 8. Improvement Suggestions
 
 - If you identify potential improvements during implementation, complete the requested task first.
 - Present improvement suggestions separately after the implementation is complete.
@@ -64,7 +73,9 @@ When the initial implementation approach encounters problems (e.g., directory no
 
 | Situation             | Required Action                                          |
 | --------------------- | -------------------------------------------------------- |
+| Ambiguous request     | Ask for clarification (Specification Gate)               |
+| Draft plan created    | Wait for explicit user approval (Draft Confirmation Gate)|
 | High-risk operation   | Report plan → Get y/n → Wait for "y"                     |
 | Implementation error  | Stop → Explain → Propose alternative → Wait for approval |
 | Improvement idea      | Complete task first → Suggest separately afterward       |
-| Uncertain information | Ask for clarification, do not guess                      |
+| Uncertain information | Ask for clarification or research, do not guess          |

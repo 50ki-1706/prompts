@@ -1,14 +1,19 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "watcher": {
-    "ignore": ["node_modules/**", "dist/**", ".git/**"]
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      ".git/**"
+    ]
   },
   "theme": "opencode",
   "autoupdate": true,
-  "disabled_providers": ["opencode"],
   "model": "openai/gpt-5.2-codex",
   "small_model": "openai/gpt-5.2-codex",
-  "plugin": ["opencode-antigravity-auth@latest"],
+  "plugin": [
+    "opencode-antigravity-auth@latest"
+  ],
   "provider": {
     "google": {
       "models": {
@@ -19,8 +24,14 @@
             "output": 65535
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           },
           "variants": {
             "low": {
@@ -38,8 +49,14 @@
             "output": 65536
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           },
           "variants": {
             "minimal": {
@@ -63,8 +80,14 @@
             "output": 64000
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           }
         },
         "antigravity-claude-opus-4-6-thinking": {
@@ -74,8 +97,14 @@
             "output": 64000
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           },
           "variants": {
             "low": {
@@ -97,8 +126,14 @@
             "output": 65536
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           }
         },
         "gemini-3.1-pro-preview": {
@@ -108,8 +143,14 @@
             "output": 65535
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           }
         },
         "gemini-3.1-pro-preview-customtools": {
@@ -119,8 +160,14 @@
             "output": 65535
           },
           "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
+            "input": [
+              "text",
+              "image",
+              "pdf"
+            ],
+            "output": [
+              "text"
+            ]
           }
         }
       }
@@ -136,231 +183,250 @@
       "pnpm test": "allow",
       "cargo test": "allow",
       "make test": "allow",
-      "*": "ask"
+      "*": "ask",
+      "sudo *": "deny",
+      "rm -rf *": "deny",
+      "git push --force": "deny"
     }
   },
   "agent": {
-    "build": {
-      "mode": "subagent",
-      "hidden": true
-    },
-    "plan": {
-      "mode": "subagent",
-      "hidden": true
-    },
-    "01_spec_design": {
+    "spec": {
       "mode": "primary",
-      "description": "spec designer (gemini 3.1 pro). prepares exact context for planning; delegates Markdown to summary agent",
-      "model": "google/antigravity-gemini-3.1-pro",
+      "model": "google/gemini-3.1-pro-preview-customtools",
+      "description": "Specification design and overall planning (high reasoning). Translates user requests into actionable plans.",
       "tools": {
         "read": true,
         "grep": true,
         "glob": true,
         "list": true,
         "question": true,
-        "websearch": false,
-        "webfetch": false,
-        "write": false,
-        "edit": false
+        "write": true,
+        "edit": true
       },
       "permission": {
         "task": {
-          "*": "deny",
-          "summary": "allow",
-          "websearch": "allow"
+          "*": "allow"
         },
         "edit": {
-          "*": "allow",
-          "*.md": "deny"
+          "*": "allow"
         }
       },
-      "prompt": "Role: Japanese spec designer.\n\nGoal: Produce a precise spec package for the planning agent.\n\nRules:\n- NEVER create/edit/delete Markdown files yourself.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- If you need to search the web, ask the `websearch` subagent.\n- If AGENTS.md is missing, ask the 'summary' agent to create it in the project root.\n- Summarize requirements into AGENTS.md via 'summary' agent.\n- Then hand off a compact, unambiguous spec to the 'plan' agent.\n- If anything is missing, ask up to 5 targeted questions; otherwise proceed with explicit assumptions.\n\nOutput (in chat):\n1) Finalized requirements (bullets)\n2) Interfaces / constraints\n3) Edge cases\n4) Acceptance criteria\nStop."
+      "prompt": "Role: Specification Design and Overall Planning Agent (spec)\n\nGoal: Translate user requests into an 'actionable plan'.\n\nWorkflow:\n1. Initial Investigation: Call `explore` as needed to investigate the current codebase.\n2. Specification Clarification (Hard Gate): If there are ambiguities, use the `question` tool to ask the user and resolve them. Do not proceed until resolved.\n3. External Research: If there are knowledge gaps, call `internet_research` to verify facts.\n4. Draft Plan Creation: Instruct `draft_planner` to create a 'draft' in `.agents/plans/`.\n5. User Approval (Draft Confirmation Gate): Do not proceed to implementation until the user reviews and explicitly 'approves' the draft. Ask the user for confirmation.\n6. Final Plan Creation and Review: Create the final plan based on the approved draft, and have `plan_reviewer` strictly check its consistency. Fix any flaws and get reviewed again.\n\nRules:\n- Specification Gate: Do not plan until user questions are answered.\n- Knowledge Gate: Always research unknowns online before including them in the plan.\n- Approval Gate: Do not implement (write) until the user approves the draft.\n- Review Gate: The plan is not complete until `plan_reviewer` approves it."
     },
-    "02_plan": {
+    "orchestrator": {
       "mode": "primary",
-      "description": "implementation planner (opus 4.6 via github-copilot). creates agent-todo.md via summary agent",
+      "model": "opencode/glm-5",
+      "description": "Task division and execution instruction (commander). Breaks down the plan into small tasks and delegates to subagents.",
+      "tools": {
+        "read": true,
+        "grep": true,
+        "glob": true,
+        "list": true
+      },
+      "permission": {
+        "task": {
+          "*": "allow"
+        },
+        "edit": {
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Implementation Orchestration Agent (orchestrator)\n\nGoal: Break down the approved plan into small task units and assign work to subagents.\n\nWorkflow:\n1. Task Division: Break down the final plan into small task units.\n2. Parallel Implementation Delegation: Do not edit files yourself; assign work to the following subagents:\n   - `general`: Implementation tasks requiring investigation.\n   - `implement`: Pinpoint patch application to clearly specified locations.\n   - `debugger`: Investigation and reproduction if bugs are found during the process.\n3. Test Design: Have `test_designer` create a test specification (test-spec) in accordance with feature changes.\n4. Verification and Audit: After implementation, have `tester` run tests, request code review from `code_reviewer`, and request document audit from `doc_auditor`.\n\nRules:\n- Do not edit code yourself.\n- Use subagents appropriately."
+    },
+    "draft_planner": {
+      "mode": "subagent",
       "model": "google/antigravity-claude-opus-4-6-thinking",
+      "description": "Creates draft plans.",
       "tools": {
-        "read": true,
-        "grep": true,
-        "glob": true,
-        "list": true,
-        "question": true,
-        "write": false,
-        "edit": false,
-        "websearch": false,
-        "webfetch": false
-      },
-      "permission": {
-        "task": {
-          "*": "deny",
-          "summary": "allow"
-        },
-        "edit": {
-          "*": "allow",
-          "*.md": "deny"
-        }
-      },
-      "prompt": "Role: Japanese implementation planner.\n\nYou ONLY do planning. Do NOT write or edit code.\n\nRules:\n- NEVER create/edit/delete Markdown yourself.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- Ask the 'summary' agent to create/overwrite ./agent-todo.md in repo root.\n- agent-todo.md must have exactly these sections:\n  - Implement Plan\n  - Test Plan\n  - (Optional) Notes\n- Use checklists with [ ] for each actionable item.\n- Ensure tasks reference files/paths when possible.\n\nOutput in chat:\n1) Plan summary\n2) What to put into agent-todo.md (structured)\nStop."
-    },
-    "03_implement": {
-      "mode": "primary",
-      "description": "implementer (codex-5.2). implements based on agent-todo.md Implement Plan; checklist updates delegated to summary agent",
-      "model": "openai/gpt-5.2-codex",
-      "tools": {
-        "bash": true,
         "read": true,
         "write": true,
-        "edit": true,
-        "grep": true,
-        "glob": true,
-        "list": true,
-        "lsp": true,
-        "skill": true,
-        "todowrite": false,
-        "todoread": false,
-        "webfetch": false,
-        "websearch": false
+        "edit": true
       },
       "permission": {
-        "task": {
-          "*": "deny",
-          "summary": "allow"
-        },
         "edit": {
-          "*": "allow",
-          "*.md": "deny"
+          ".agents/plans/*.md": "allow",
+          "*": "deny"
         }
       },
-      "prompt": "Role: software implementer.\n\nImplement based on ./agent-todo.md (Implement Plan).\n\nRules:\n- Do NOT edit/create/delete any Markdown files (including agent-todo.md, AGENTS.md). For checklist updates, ask the 'summary' agent.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- After finishing each item, tell 'summary' exactly which checkbox to mark as done.\n- Keep changes minimal and reviewable.\n\nAfter changes, report:\n- Files changed\n- Why\n- How to run/build (exact commands)\nStop."
+      "prompt": "Role: Draft Plan Creation Agent (draft_planner)\n\nGoal: Create a draft plan in `.agents/plans/` based on instructions from `spec`.\n\nRules:\n- Create the draft in Markdown format within the `.agents/plans/` directory.\n- The draft must include the goal, approach, step overview, impact scope, risks, and unresolved questions.\n- Do not include detailed implementation steps or code snippets."
     },
-    "04_test": {
-      "mode": "primary",
-      "description": "tester (local Qwen). adds tests based on Test Plan, runs them, summarizes results; Markdown updates delegated to summary agent",
-      "model": "openai/gpt-5.2-codex",
-      "tools": {
-        "bash": true,
-        "read": true,
-        "write": true,
-        "edit": true,
-        "grep": true,
-        "glob": true,
-        "list": true,
-        "lsp": true,
-        "skill": true,
-        "webfetch": false,
-        "websearch": false
-      },
-      "permission": {
-        "task": {
-          "*": "deny",
-          "summary": "allow"
-        },
-        "edit": {
-          "*": "allow",
-          "*.md": "deny"
-        }
-      },
-      "prompt": "Role: SDET.\n\nUse ./agent-todo.md (Test Plan) as source of truth.\n\nRules:\n- Do NOT edit/create/delete Markdown files. Ask the 'summary' agent to update agent-todo.md checkboxes and to write test result summaries.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- Prefer fast unit tests first.\n- Run tests and capture commands + key outputs.\n\nReport:\n- Tests added (files)\n- Commands run\n- Failures + fixes\n- Summary for summary-agent to paste\nStop."
-    },
-    "05_code_review": {
-      "mode": "primary",
-      "description": "reviewer (opus 4.6). checks completion vs agent-todo.md and code quality; if OK asks summary agent to delete agent-todo.md",
-      "model": "github-copilot/claude-opus-4.6",
-      "tools": {
-        "read": true,
-        "grep": true,
-        "glob": true,
-        "list": true,
-        "lsp": true,
-        "bash": false,
-        "write": false,
-        "edit": false,
-        "webfetch": false,
-        "websearch": false
-      },
-      "permission": {
-        "task": {
-          "*": "deny",
-          "summary": "allow",
-          "websearch": "allow"
-        },
-        "edit": {
-          "*": "allow",
-          "*.md": "deny"
-        }
-      },
-      "prompt": "Role: strict code reviewer.\n\nReview the repository vs ./agent-todo.md completion.\n\nRules:\n- Do NOT edit code or Markdown.\n- If you need to create, edit, or delete Markdown files, ask the `summary` subagent.\n- If you need to search the web, ask the `websearch` subagent.\n- Verify requirements are met; assess maintainability and security.\n- Output findings with severity: blocker/major/minor.\n- If everything is OK, instruct the 'summary' agent to delete ./agent-todo.md.\nStop."
-    },
-    "websearch": {
+    "implement": {
       "mode": "subagent",
-      "hidden": true,
-      "description": "subagent for web searching (gemini flash). used only when other agents request web lookup",
+      "model": "opencode/kimi-k2.5",
+      "description": "Local code editing. Pinpoint patch application to clearly specified locations.",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "grep": true,
+        "glob": true,
+        "list": true,
+        "bash": true
+      },
+      "permission": {
+        "edit": {
+          "*": "allow"
+        }
+      },
+      "prompt": "Role: Implementation Agent (implement)\n\nGoal: Apply pinpoint patches to clearly specified locations.\n\nRules:\n- Edit only the specified files.\n- Create accurate patches with minimal context reading.\n- Do not perform broad codebase exploration."
+    },
+    "general": {
+      "mode": "subagent",
+      "model": "opencode/kimi-k2.5",
+      "description": "Code implementation involving investigation.",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true,
+        "grep": true,
+        "glob": true,
+        "list": true,
+        "bash": true
+      },
+      "permission": {
+        "edit": {
+          "*": "allow"
+        }
+      },
+      "prompt": "Role: General Implementation Agent (general)\n\nGoal: Execute implementation tasks that require investigation.\n\nRules:\n- Execute delegated tasks end-to-end.\n- Explore and edit only necessary files."
+    },
+    "explore": {
+      "mode": "subagent",
+      "model": "google/gemini-3.1-pro-preview-customtools",
+      "description": "Codebase investigation.",
+      "tools": {
+        "read": true,
+        "grep": true,
+        "glob": true,
+        "list": true
+      },
+      "permission": {
+        "edit": {
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Exploration Agent (explore)\n\nGoal: Perform read-only investigation of the codebase.\n\nRules:\n- Do not make any file changes.\n- Quickly gather and report the requested information."
+    },
+    "plan_reviewer": {
+      "mode": "subagent",
+      "model": "openai/gpt-5.2-codex",
+      "description": "Strict review of plan documents (high reasoning).",
+      "tools": {
+        "read": true
+      },
+      "permission": {
+        "edit": {
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Plan Review Agent (plan_reviewer)\n\nGoal: Perform strict review of final plans and test specifications (test-spec).\n\nRules:\n- Target only `.agents/plans/*.md`.\n- Report findings in order of severity (high -> medium -> low).\n- Provide specific directions for correction."
+    },
+    "code_reviewer": {
+      "mode": "subagent",
+      "model": "openai/gpt-5.2-codex",
+      "description": "Strict review of code (high reasoning).",
+      "tools": {
+        "read": true,
+        "grep": true,
+        "glob": true,
+        "list": true
+      },
+      "permission": {
+        "edit": {
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Code Review Agent (code_reviewer)\n\nGoal: Perform strict review of changed code.\n\nRules:\n- Focus on correctness, regressions, edge cases, API mismatches, and missing tests.\n- Report findings in order of severity (high -> medium -> low), specifying file paths and line numbers."
+    },
+    "doc_auditor": {
+      "mode": "subagent",
+      "model": "openai/gpt-5.2-codex",
+      "description": "Document drift check.",
+      "tools": {
+        "read": true,
+        "grep": true,
+        "glob": true,
+        "list": true,
+        "write": true
+      },
+      "permission": {
+        "edit": {
+          ".agents/reports/*.md": "allow",
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Document Audit Agent (doc_auditor)\n\nGoal: Check for discrepancies between implementation and documentation (e.g., README) and create update instructions.\n\nRules:\n- Do not edit documents directly.\n- Create a drift report (update instructions) in `.agents/reports/`."
+    },
+    "debugger": {
+      "mode": "subagent",
+      "model": "openai/gpt-5.2-codex",
+      "description": "Bug root cause investigation (high accuracy).",
+      "tools": {
+        "read": true,
+        "grep": true,
+        "glob": true,
+        "list": true,
+        "bash": true,
+        "write": true
+      },
+      "permission": {
+        "edit": {
+          ".agents/reports/*.md": "allow",
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Debugging Agent (debugger)\n\nGoal: Investigate, reproduce, and analyze the root cause of bugs.\n\nRules:\n- Execute commands to gather evidence.\n- Do not edit source code directly.\n- Create a bug report in `.agents/reports/`."
+    },
+    "test_designer": {
+      "mode": "subagent",
+      "model": "google/antigravity-claude-opus-4-6-thinking",
+      "description": "Test specification design (high accuracy).",
+      "tools": {
+        "read": true,
+        "write": true,
+        "edit": true
+      },
+      "permission": {
+        "edit": {
+          ".agents/plans/*.md": "allow",
+          "*": "deny"
+        }
+      },
+      "prompt": "Role: Test Design Agent (test_designer)\n\nGoal: Create a test specification (test-spec) in accordance with feature changes.\n\nRules:\n- Create the test specification in `.agents/plans/`.\n- After creation, request a review from `plan_reviewer`."
+    },
+    "internet_research": {
+      "mode": "subagent",
       "model": "google/gemini-3-flash-preview",
+      "description": "Internet search and research.",
       "tools": {
         "websearch": true,
         "webfetch": true,
-        "read": false,
-        "write": false,
-        "edit": false,
-        "bash": false
+        "write": true
       },
       "permission": {
         "edit": {
+          ".agents/research/*.md": "allow",
           "*": "deny"
         }
       },
-      "prompt": "Role: web researcher.\n\nUse websearch/webfetch to find primary sources.\nReturn:\n- short answer\n- key citations (URLs)\n- extracted facts (bullets)\nNo code."
+      "prompt": "Role: Internet Research Agent (internet_research)\n\nGoal: Perform external research to fill knowledge gaps.\n\nRules:\n- Search reliable information sources.\n- Create a file summarizing the research results in `.agents/research/`."
     },
-    "summary": {
+    "tester": {
       "mode": "subagent",
-      "hidden": true,
-      "description": "subagent for Markdown management (gemini flash). exclusively creates/edits/deletes Markdown files and summarizes results",
-      "model": "google/antigravity-gemini-3-flash",
+      "model": "openai/gpt-5.2-codex",
+      "description": "Test execution and failure reporting.",
       "tools": {
         "read": true,
-        "write": true,
-        "edit": true,
-        "glob": true,
-        "list": true,
-        "grep": true,
-        "bash": false,
-        "websearch": false,
-        "webfetch": false
+        "bash": true,
+        "write": true
       },
       "permission": {
         "edit": {
-          "*.md": "allow",
+          ".agents/reports/*.md": "allow",
           "*": "deny"
         }
       },
-      "prompt": "Role: repo documentation editor.\n\nYou are the ONLY agent allowed to create/edit/delete Markdown files (AGENTS.md, agent-todo.md, reports).\n\nRules:\n- Apply requested edits exactly.\n- Keep Markdown structured and compact.\n- When updating checklists, only flip the requested items.\nStop."
-    },
-    "ask": {
-      "mode": "primary",
-      "description": "fallback agent for asking user questions when agents are uncertain; also used for user-initiated questions",
-      "model": "google/antigravity-gemini-3-flash",
-      "tools": {
-        "question": true,
-        "read": false,
-        "write": false,
-        "edit": false,
-        "grep": false,
-        "glob": false,
-        "list": false,
-        "bash": false,
-        "websearch": false,
-        "webfetch": false
-      },
-      "permission": {
-        "task": {
-          "*": "deny",
-          "question": "allow"
-        },
-        "edit": {
-          "*": "deny"
-        }
-      }
+      "prompt": "Role: Test Execution Agent (tester)\n\nGoal: Execute tests and create a failure-report if they fail.\n\nRules:\n- Execute tests and analyze the results.\n- If failed, create a failure-report in `.agents/reports/`.\n- Do not edit source code directly."
     }
   }
 }
