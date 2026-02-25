@@ -17,6 +17,7 @@ Agent-specific behavior must be implemented in each agent prompt and enforced by
 - State facts based on direct evidence (repository inspection, command results, or cited sources).
 - Do not present assumptions as facts.
 - If information is missing, explicitly mark it as unknown and request clarification or research.
+- `spec` / `fast` must obtain local repository facts via delegated read-only subagents (`explore`, and `debugger` when reproduction evidence is needed), not by direct self-inspection.
 
 ### User Intent Priority
 
@@ -94,6 +95,7 @@ Do not hand off to implementation until:
 
 Use `internet_research` only when local inspection is insufficient and external facts are necessary.
 Do not force online research for purely local code changes.
+For primary agents (`spec`, `fast`), local inspection should normally be delegated to `explore` rather than performed directly.
 
 ### 3. User Approval Gate
 
@@ -126,7 +128,9 @@ When `spec` delegates to `orchestrator` (which then delegates to subagents):
 ### 5. Role Separation Gate
 
 - `spec` may create planning artifacts only; it must not edit product/source code.
+- `spec` must use `explore` for repository file discovery/search/reading and should not self-inspect product/source files.
 - `fast` is a primary dispatcher and may delegate implementation/investigation, but it should not become a full planning/orchestration replacement for complex work.
+- `fast` must use delegated subagents (`explore` / `debugger` / `executor`) for repository inspection and not self-inspect repository files.
 - `fast` must not directly implement repository code changes or present an unapplied patch as if the change were executed; implementation is delegated.
 - `orchestrator` is a subagent that manages execution and gates; it must not edit product/source code.
 - Implementation is performed by implementation-capable subagents only.

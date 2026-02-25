@@ -161,12 +161,13 @@ graph TD
 
 - **fast-path**: `R0`（小さく明確な変更）向け。ローカル調査中心で最小限の計画を作成し、ユーザー承認後に実装へ進む。
 - **fast primary lane (`fast`)**: 単発の修正・調査・小さな実装向け。依頼を分類して `explore` / `debugger` / `executor` などへ最小委譲し、必要な検証ゲートのみ実行する。
+  - `fast` はリポジトリ調査（ファイル探索・コード読取・構造確認）を自前で行わず、`explore`（または再現調査が必要な場合は `debugger`）へ委譲する。
 - **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
 - 計画主導経路（`fast-path` / `strict-path`）では、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
 
 ### 標準フロー（新構成 / `spec` 主導）
 
-1. **初期調査（read-only）**: `spec` が `explore` を使い、コードベースの事実を収集する。
+1. **初期調査（read-only）**: `spec` が `explore` を使い、コードベースの事実を収集する（`spec` 自身はリポジトリ調査を直接行わない）。
 2. **仕様の明確化（Specification Gate）**: 目的、範囲、制約、成功条件を確定する。曖昧さが残る間は実装へ進まない。
 3. **外部知識の確認（Knowledge Gate / 条件付き）**: ローカル調査で不足する場合のみ `internet_research` を使う。
 4. **計画作成（spec）**: `spec` が `.agents/plans/` に計画成果物（draft/final plan、必要なら補足）を作成する。
@@ -180,12 +181,12 @@ graph TD
 ### 主要な関所（Gate）
 
 - **Specification Gate**: 意図・範囲・成功条件が明確で、計画が意思決定済みであること。
-- **Knowledge Gate（条件付き）**: 外部知識が必要な場合のみ `internet_research` を使用すること。
+- **Knowledge Gate（条件付き）**: 外部知識が必要な場合のみ `internet_research` を使用すること。`spec` / `fast` のローカル調査は原則 `explore` 委譲とする。
 - **User Approval Gate**: `spec` 主導では実装前にユーザーの明示承認があること（`fast` は R0/小さなR1で依頼自体を承認として扱える）。
 - **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
 - **Checkpoint Progress Gate**: `spec`→`orchestrator`→各サブエージェントのネスト時は、`orchestrator` が `IN_PROGRESS` で段階的に返却し、`spec` が都度中継すること。長時間の無言ネスト実行を避ける。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
-- **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。
+- **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。`spec` / `fast` はリポジトリ調査を自前で行わず、`explore`（必要に応じて `debugger`）を使うこと。
 
 ## 出力契約（Gate判定用）
 
