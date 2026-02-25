@@ -96,7 +96,16 @@ echo "Synced all prompts from ${PROMPTS_DIR} into ${CONFIG}"
 
 ```mermaid
 graph TD
+    User((User)) --> fast[fast/Primary]
     User((User)) --> spec[spec/Primary]
+    
+    subgraph Fast Primary Lane
+        fast --> explore_fast[explore]
+        fast --> debugger_fast[debugger]
+        fast --> exec_fast[executor]
+        fast --> tester_fast[tester]
+        fast --> review_fast[code_reviewer]
+    end
     
     subgraph Planning Phase
         spec --> explore[explore]
@@ -122,20 +131,23 @@ graph TD
 
 ## エージェント構成
 
-### 1. 仕様策定と計画フェーズ（メイン：spec）
+### 1. クイック実行フェーズ（メイン：fast）
+- **fast (Primary)**: 単発のコード修正・コード調査・小さな実装変更向けの高速エージェント。依頼を `bug_fix / research / coding` に分類し、必要最小限のサブエージェントへ委譲する。（モデル: `google/gemini-3.1-pro-customtools`）
+
+### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
 - **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/gemini-3.1-pro-preview-customtools`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3-flash-preview`）
 - **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.2-codex`）
 
-### 2. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
+### 3. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
 - **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、実装・統合・検証・監査を委譲する。プロダクトコードは編集しない。（モデル: `opencode/glm-5`）
 - **executor (Subagent)**: 統合実装エージェント。`mode: surgical`（局所修正）と `mode: investigative`（調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
 - **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `openai/gpt-5.2-codex`）
 - **debugger (Subagent)**: バグ調査・再現・根本原因分析。証拠ベースのレポートを作成し、修正方針の材料を提供する。（モデル: `openai/gpt-5.2-codex`）
 - **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更やテスト方針が曖昧な場合に test-spec を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
 
-### 3. 検証と監査フェーズ
+### 4. 検証と監査フェーズ
 - **tester (Subagent)**: テスト実行と結果報告。`STATUS: PASS | FAIL | BLOCKED` でゲート判定可能な形式で返す。（モデル: `openai/gpt-5.2-codex`）
 - **code_reviewer (Subagent)**: コードレビュー。`STATUS: APPROVED | REJECTED` と重大度順 findings を返す。（モデル: `openai/gpt-5.2-codex`）
 - **doc_auditor (Subagent)**: ドキュメント乖離監査。`STATUS: PASS | DRIFT_FOUND | BLOCKED` と更新指示書を返す。（モデル: `openai/gpt-5.2-codex`）
@@ -143,15 +155,16 @@ graph TD
 ## ワークフローと「関所」
 
 このフローには、暴走防止と速度の両立を意図した「関所」と「経路」があります。
-ユーザーとの対話窓口は `spec` に一本化され、計画承認後の実装移行は内部で自動的に行われます。
+ユーザーとの対話窓口は `fast`（単発・高速）または `spec`（計画主導）の primary エージェントで、`spec` の計画承認後の実装移行は内部で自動的に行われます。
 
 ### 実行経路（Path）
 
 - **fast-path**: `R0`（小さく明確な変更）向け。ローカル調査中心で最小限の計画を作成し、ユーザー承認後に実装へ進む。
+- **fast primary lane (`fast`)**: 単発の修正・調査・小さな実装向け。依頼を分類して `explore` / `debugger` / `executor` などへ最小委譲し、必要な検証ゲートのみ実行する。
 - **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
-- どちらの経路でも、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
+- 計画主導経路（`fast-path` / `strict-path`）では、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
 
-### 標準フロー（新構成）
+### 標準フロー（新構成 / `spec` 主導）
 
 1. **初期調査（read-only）**: `spec` が `explore` を使い、コードベースの事実を収集する。
 2. **仕様の明確化（Specification Gate）**: 目的、範囲、制約、成功条件を確定する。曖昧さが残る間は実装へ進まない。
@@ -168,7 +181,7 @@ graph TD
 
 - **Specification Gate**: 意図・範囲・成功条件が明確で、計画が意思決定済みであること。
 - **Knowledge Gate（条件付き）**: 外部知識が必要な場合のみ `internet_research` を使用すること。
-- **User Approval Gate**: 実装前にユーザーの明示承認があること。
+- **User Approval Gate**: `spec` 主導では実装前にユーザーの明示承認があること（`fast` は R0/小さなR1で依頼自体を承認として扱える）。
 - **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。
