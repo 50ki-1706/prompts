@@ -5,10 +5,12 @@
 ```bash
 ln -s ~/Dev/Tools/prompts/opencode/AGENTS.md  ~/.config/opencode
 ln -s ~/Dev/Tools/prompts/opencode/opencode.json ~/.config/opencode
+ln -s ~/Dev/Tools/prompts/opencode/prompts ~/.config/opencode/prompts
 ```
 ## opencode-sync-prompts(~/.local/bin/opencode-sync-prompts)
 
-promptsファイルからopencode.jsonのpromptを更新するシェルスクリプト
+`prompts/*.md` を prompt の真実源（source of truth）として扱い、`opencode.json` の `agent.*.prompt` を同期するシェルスクリプトです。
+agent の prompt を変更する場合は、先に `prompts/` 配下を編集してから同期してください。
 
 ```bash
 #!/usr/bin/env bash
@@ -99,15 +101,14 @@ graph TD
     subgraph Planning Phase
         spec --> explore[explore]
         spec --> research[internet_research]
-        spec --> draft[draft_planner]
         spec --> plan_rev[plan_reviewer]
     end
     
-    spec -- "Approved Plan" --> orch[orchestrator/Primary]
+    spec -- "y承認後に自動委譲" --> orch[orchestrator/Subagent]
     
-    subgraph Implementation Phase
-        orch --> general[general]
-        orch --> implement[implement]
+    subgraph Implementation & Integration Phase
+        orch --> exec[executor]
+        orch --> integ[integrator]
         orch --> debugger[debugger]
         orch --> test_des[test_designer]
     end
@@ -122,34 +123,71 @@ graph TD
 ## エージェント構成
 
 ### 1. 仕様策定と計画フェーズ（メイン：spec）
-- **spec (Primary)**: 仕様策定、全体計画（高推論）。ユーザーの依頼を実行可能な計画に落とし込む。（モデル: `google/gemini-3.1-pro-preview-customtools`）
-- **explore (Subagent)**: コードベース調査。読み取り専用で現在のコードベースを調査する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
-- **internet_research (Subagent)**: インターネット検索・調査。知識の欠落を補うための外部リサーチを行う。（モデル: `google/gemini-3-flash-preview`）
-- **draft_planner (Subagent)**: ドラフト計画の作成。`.agents/plans/` 内にドラフト計画を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
-- **plan_reviewer (Subagent)**: 計画書の厳格な査読（高推論）。最終計画およびテスト仕様書の厳格な査読を行う。（モデル: `openai/gpt-5.2-codex`）
+- **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
+- **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/gemini-3.1-pro-preview-customtools`）
+- **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3-flash-preview`）
+- **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.2-codex`）
 
-### 2. 実装オーケストレーションフェーズ（メイン：orchestrator）
-- **orchestrator (Primary)**: タスク分割、実行指示（司令塔）。計画を小さなタスクに分解し、サブエージェントに委譲する。（モデル: `opencode/glm-5`）
-- **general (Subagent)**: 調査を伴うコード実装。委譲されたタスクをエンドツーエンドで実行する。（モデル: `opencode/kimi-k2.5`）
-- **implement (Subagent)**: 局所的なコード編集。指示が明確な箇所へのピンポイントなパッチ適用を行う。（モデル: `opencode/kimi-k2.5`）
-- **debugger (Subagent)**: バグの原因究明（高精度）。バグの調査、再現、根本原因の分析を行う。（モデル: `openai/gpt-5.2-codex`）
-- **test_designer (Subagent)**: テスト仕様の設計（高精度）。機能変更に合わせてテストの仕様書（test-spec）を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
+### 2. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
+- **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、実装・統合・検証・監査を委譲する。プロダクトコードは編集しない。（モデル: `opencode/glm-5`）
+- **executor (Subagent)**: 統合実装エージェント。`mode: surgical`（局所修正）と `mode: investigative`（調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
+- **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `openai/gpt-5.2-codex`）
+- **debugger (Subagent)**: バグ調査・再現・根本原因分析。証拠ベースのレポートを作成し、修正方針の材料を提供する。（モデル: `openai/gpt-5.2-codex`）
+- **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更やテスト方針が曖昧な場合に test-spec を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
 
 ### 3. 検証と監査フェーズ
-- **tester (Subagent)**: テスト実行と失敗報告。テストを実行し、失敗した場合は failure-report を作成して報告する。（モデル: `openai/gpt-5.2-codex`）
-- **code_reviewer (Subagent)**: コードの厳格な査読（高推論）。変更されたコードの厳格な査読を行う。（モデル: `openai/gpt-5.2-codex`）
-- **doc_auditor (Subagent)**: ドキュメントの乖離チェック。実装とドキュメントにズレがないかチェックし、更新指示書を作成する。（モデル: `openai/gpt-5.2-codex`）
+- **tester (Subagent)**: テスト実行と結果報告。`STATUS: PASS | FAIL | BLOCKED` でゲート判定可能な形式で返す。（モデル: `openai/gpt-5.2-codex`）
+- **code_reviewer (Subagent)**: コードレビュー。`STATUS: APPROVED | REJECTED` と重大度順 findings を返す。（モデル: `openai/gpt-5.2-codex`）
+- **doc_auditor (Subagent)**: ドキュメント乖離監査。`STATUS: PASS | DRIFT_FOUND | BLOCKED` と更新指示書を返す。（モデル: `openai/gpt-5.2-codex`）
 
 ## ワークフローと「関所」
 
-このフローにはAIが暴走しないための「関所」が設けられています。
+このフローには、暴走防止と速度の両立を意図した「関所」と「経路」があります。
+ユーザーとの対話窓口は `spec` に一本化され、計画承認後の実装移行は内部で自動的に行われます。
 
-1. **初期調査**: `spec` が開始され、必要に応じて `explore` を呼び出して、現在のコードベースを調査します。
-2. **仕様の明確化 (Hard Gate)**: 曖昧な点がある場合、`spec` はユーザーに質問し、不明点を解消します。これが解決するまで次へ進めない「ハードゲート」になっています。
-3. **外部リサーチ**: 知識に欠落がある場合、`internet_research` を呼び出して事実を確認します。
-4. **ドラフト計画の作成**: `spec` が `draft_planner` に指示し、`.agents/plans/` 内に「ドラフト（下書き）」を作成させます。
-5. **ユーザー承認 (Draft Confirmation Gate)**: **[重要]** ユーザーがドラフトを確認し、明示的に「承認」するまで実装には進みません。
-6. **最終計画の作成と査読**: 承認されたドラフトを元に `spec` が最終計画を作成し、`plan_reviewer` がその整合性を厳格にチェックします。
-7. **タスク分割と並行実装**: `orchestrator` が最終計画を小さなタスク単位に分解し、`general`, `implement`, `debugger` などのサブエージェントに作業を振ります。
-8. **テスト設計**: 機能変更に合わせて、`test_designer` がテストの仕様書（test-spec）を作成します。
-9. **検証と監査**: 実装完了後、`tester` にテストを実行させ、`code_reviewer` にコードレビューを依頼し、`doc_auditor` にドキュメント監査を依頼します。
+### 実行経路（Path）
+
+- **fast-path**: `R0`（小さく明確な変更）向け。ローカル調査中心で最小限の計画を作成し、ユーザー承認後に実装へ進む。
+- **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
+- どちらの経路でも、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
+
+### 標準フロー（新構成）
+
+1. **初期調査（read-only）**: `spec` が `explore` を使い、コードベースの事実を収集する。
+2. **仕様の明確化（Specification Gate）**: 目的、範囲、制約、成功条件を確定する。曖昧さが残る間は実装へ進まない。
+3. **外部知識の確認（Knowledge Gate / 条件付き）**: ローカル調査で不足する場合のみ `internet_research` を使う。
+4. **計画作成（spec）**: `spec` が `.agents/plans/` に計画成果物（draft/final plan、必要なら補足）を作成する。
+5. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
+6. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
+7. **自動移行とタスク分割（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はタスクマニフェストを作成し、`executor` に `mode: surgical` / `mode: investigative` を指定して委譲する。
+8. **統合作業（必要時）**: 並列タスクの接着・競合解消は `integrator` が担当する。
+9. **テスト仕様設計（条件付き）**: 中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が test-spec を作成する。
+10. **検証と監査（最終ゲート）**: `tester`、`code_reviewer`、`doc_auditor` を実行し、各 `STATUS` が成功状態であることを確認して完了とする。
+
+### 主要な関所（Gate）
+
+- **Specification Gate**: 意図・範囲・成功条件が明確で、計画が意思決定済みであること。
+- **Knowledge Gate（条件付き）**: 外部知識が必要な場合のみ `internet_research` を使用すること。
+- **User Approval Gate**: 実装前にユーザーの明示承認があること。
+- **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
+- **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
+- **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。
+
+## 出力契約（Gate判定用）
+
+レビュー/検証系エージェントは、機械判定しやすい `STATUS` を必ず含めます。
+
+- `plan_reviewer`: `STATUS: APPROVED | REJECTED`
+- `code_reviewer`: `STATUS: APPROVED | REJECTED`
+- `tester`: `STATUS: PASS | FAIL | BLOCKED`
+- `doc_auditor`: `STATUS: PASS | DRIFT_FOUND | BLOCKED`
+- `debugger`: `STATUS: REPRODUCED | NOT_REPRODUCED | BLOCKED`
+- `executor` / `integrator` / `test_designer`: `STATUS: COMPLETED | BLOCKED`
+
+## 成果物ディレクトリ
+
+- `.agents/plans/`: 計画書、test-spec
+- `.agents/tasks/`: タスクマニフェスト
+- `.agents/state/`: 実行状態や進行管理メモ
+- `.agents/reports/`: テスト失敗、デバッグ、ドキュメント乖離レポート
+- `.agents/research/`: 外部リサーチ結果
