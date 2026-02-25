@@ -61,6 +61,7 @@ Requirements:
 
 - Classify the request (`bug_fix` / `research` / `coding`) before delegation.
 - Use the minimum necessary subagents (`explore`, `debugger`, `executor`, etc.).
+- For repository code changes in `bug_fix` / `coding`, `fast` must delegate implementation to an implementation-capable subagent (normally `executor`) and must not self-implement.
 - Keep scope tight; if the task becomes design-heavy or `R2+`, recommend `spec`.
 - Run review/test gates when code is changed.
 
@@ -113,10 +114,20 @@ Fast-lane exception (`fast`):
 
 Changes are not complete until required reviewer/test outputs report success using the defined output contract.
 
+### 4.5. Checkpoint Progress Gate (Nested Orchestration)
+
+When `spec` delegates to `orchestrator` (which then delegates to subagents):
+
+- Do not run the entire execution lifecycle as one long silent nested call.
+- `orchestrator` should return checkpoint updates (`IN_PROGRESS`) after bounded work units.
+- `spec` should relay each checkpoint to the user and re-invoke `orchestrator` until terminal status.
+- If no state/progress delta is produced across repeated iterations, stop and surface a suspected stall.
+
 ### 5. Role Separation Gate
 
 - `spec` may create planning artifacts only; it must not edit product/source code.
 - `fast` is a primary dispatcher and may delegate implementation/investigation, but it should not become a full planning/orchestration replacement for complex work.
+- `fast` must not directly implement repository code changes or present an unapplied patch as if the change were executed; implementation is delegated.
 - `orchestrator` is a subagent that manages execution and gates; it must not edit product/source code.
 - Implementation is performed by implementation-capable subagents only.
 
@@ -139,6 +150,8 @@ Agents may retry without user approval when the action is:
 - reversible, and
 - intended to fix transient/tooling issues (e.g., re-run command, path correction, missing flag).
 
+Retries must still be bounded. Repeating the same failing gate/task without a state change should become `BLOCKED`, not an infinite loop.
+
 ### Re-Approval Required
 
 Agents must stop and request approval before:
@@ -157,6 +170,7 @@ Reviewer and verification agents must include explicit `STATUS` fields.
 - `tester`: `STATUS: PASS | FAIL | BLOCKED`
 - `doc_auditor`: `STATUS: PASS | DRIFT_FOUND | BLOCKED`
 - `debugger`: `STATUS: REPRODUCED | NOT_REPRODUCED | BLOCKED`
+- `orchestrator`: `STATUS: IN_PROGRESS | COMPLETED | BLOCKED | NEEDS_INPUT`
 - `executor` / `integrator` / `test_designer`: `STATUS: COMPLETED | BLOCKED`
 
 All agent outputs should also include scope, key findings/results, and next action when blocked.

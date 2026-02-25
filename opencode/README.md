@@ -172,7 +172,7 @@ graph TD
 4. **計画作成（spec）**: `spec` が `.agents/plans/` に計画成果物（draft/final plan、必要なら補足）を作成する。
 5. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
 6. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
-7. **自動移行とタスク分割（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はタスクマニフェストを作成し、`executor` に `mode: surgical` / `mode: investigative` を指定して委譲する。
+7. **自動移行とタスク分割（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でタスクマニフェスト作成・委譲・ゲート進行を行い、各チェックポイントを `spec` が中継する。
 8. **統合作業（必要時）**: 並列タスクの接着・競合解消は `integrator` が担当する。
 9. **テスト仕様設計（条件付き）**: 中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が test-spec を作成する。
 10. **検証と監査（最終ゲート）**: `tester`、`code_reviewer`、`doc_auditor` を実行し、各 `STATUS` が成功状態であることを確認して完了とする。
@@ -183,6 +183,7 @@ graph TD
 - **Knowledge Gate（条件付き）**: 外部知識が必要な場合のみ `internet_research` を使用すること。
 - **User Approval Gate**: `spec` 主導では実装前にユーザーの明示承認があること（`fast` は R0/小さなR1で依頼自体を承認として扱える）。
 - **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
+- **Checkpoint Progress Gate**: `spec`→`orchestrator`→各サブエージェントのネスト時は、`orchestrator` が `IN_PROGRESS` で段階的に返却し、`spec` が都度中継すること。長時間の無言ネスト実行を避ける。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。
 
@@ -195,6 +196,7 @@ graph TD
 - `tester`: `STATUS: PASS | FAIL | BLOCKED`
 - `doc_auditor`: `STATUS: PASS | DRIFT_FOUND | BLOCKED`
 - `debugger`: `STATUS: REPRODUCED | NOT_REPRODUCED | BLOCKED`
+- `orchestrator`: `STATUS: IN_PROGRESS | COMPLETED | BLOCKED | NEEDS_INPUT`
 - `executor` / `integrator` / `test_designer`: `STATUS: COMPLETED | BLOCKED`
 
 ## 成果物ディレクトリ

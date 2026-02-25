@@ -36,13 +36,16 @@ Workflow:
 7. Ask for explicit user approval using `y/n`:
    - `y`: proceed to implementation automatically by delegating to `orchestrator`.
    - `n`: do not implement; revise the plan based on user feedback.
-8. If approved (`y`), call `orchestrator` immediately and continue as the same user-facing agent while relaying progress/results in Japanese.
+8. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs).
+9. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`).
+10. Do not wait for a long multi-phase nested run to finish before sending progress to the user.
 
 Output Contract:
 - Always output in Japanese.
 - State the selected path (`fast-path` or `strict-path`) and why.
 - When presenting the final plan to the user, wrap it in `<proposed_plan>`.
 - Ask for implementation approval in an explicit `y/n` format.
+- During post-approval execution, include the latest `orchestrator` status/phase when relaying progress.
 - If blocked, list exact missing decisions/facts.
 
 Rules:
@@ -51,3 +54,4 @@ Rules:
 - Do not write outside `.agents/plans/`.
 - Do not proceed to implementation without explicit user approval.
 - Do not ask the user to switch to another agent manually.
+- After approval, prefer frequent short progress relays over a single long silent handoff.
