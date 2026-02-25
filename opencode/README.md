@@ -82,6 +82,14 @@ mv "${tmp}" "${CONFIG}"
 echo "Synced all prompts from ${PROMPTS_DIR} into ${CONFIG}"
 ```
 
+## Model Context Protocol (MCP)
+
+`opencode.json` には Chrome DevTools を利用するための MCP サーバー設定 (`chrome-devtools-mcp`) が組み込まれています。
+これにより、AIエージェントがローカルのChromeブラウザを開き、UIの操作やコンソールの確認、ネットワークやDOMの検証を行うことが可能になります。
+
+### 使い方
+`opencode` を起動するだけで MCP サーバーが自動的に立ち上がります。AIエージェントに対して「Chromeブラウザで〇〇を確認して」と指示を出すことで、バックグラウンド連携された DevTools プロトコル経由で検証が実行されます。
+
 ## エージェント間連携図
 
 ```mermaid
@@ -114,23 +122,23 @@ graph TD
 ## エージェント構成
 
 ### 1. 仕様策定と計画フェーズ（メイン：spec）
-- **spec (Primary)**: 仕様策定、全体計画（高推論）。ユーザーの依頼を実行可能な計画に落とし込む。
-- **explore (Subagent)**: コードベース調査。読み取り専用で現在のコードベースを調査する。
-- **internet_research (Subagent)**: インターネット検索・調査。知識の欠落を補うための外部リサーチを行う。
-- **draft_planner (Subagent)**: ドラフト計画の作成。`.agents/plans/` 内にドラフト計画を作成する。
-- **plan_reviewer (Subagent)**: 計画書の厳格な査読（高推論）。最終計画およびテスト仕様書の厳格な査読を行う。
+- **spec (Primary)**: 仕様策定、全体計画（高推論）。ユーザーの依頼を実行可能な計画に落とし込む。（モデル: `google/gemini-3.1-pro-preview-customtools`）
+- **explore (Subagent)**: コードベース調査。読み取り専用で現在のコードベースを調査する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
+- **internet_research (Subagent)**: インターネット検索・調査。知識の欠落を補うための外部リサーチを行う。（モデル: `google/gemini-3-flash-preview`）
+- **draft_planner (Subagent)**: ドラフト計画の作成。`.agents/plans/` 内にドラフト計画を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
+- **plan_reviewer (Subagent)**: 計画書の厳格な査読（高推論）。最終計画およびテスト仕様書の厳格な査読を行う。（モデル: `openai/gpt-5.2-codex`）
 
 ### 2. 実装オーケストレーションフェーズ（メイン：orchestrator）
-- **orchestrator (Primary)**: タスク分割、実行指示（司令塔）。計画を小さなタスクに分解し、サブエージェントに委譲する。
-- **general (Subagent)**: 調査を伴うコード実装。委譲されたタスクをエンドツーエンドで実行する。
-- **implement (Subagent)**: 局所的なコード編集。指示が明確な箇所へのピンポイントなパッチ適用を行う。
-- **debugger (Subagent)**: バグの原因究明（高精度）。バグの調査、再現、根本原因の分析を行う。
-- **test_designer (Subagent)**: テスト仕様の設計（高精度）。機能変更に合わせてテストの仕様書（test-spec）を作成する。
+- **orchestrator (Primary)**: タスク分割、実行指示（司令塔）。計画を小さなタスクに分解し、サブエージェントに委譲する。（モデル: `opencode/glm-5`）
+- **general (Subagent)**: 調査を伴うコード実装。委譲されたタスクをエンドツーエンドで実行する。（モデル: `opencode/kimi-k2.5`）
+- **implement (Subagent)**: 局所的なコード編集。指示が明確な箇所へのピンポイントなパッチ適用を行う。（モデル: `opencode/kimi-k2.5`）
+- **debugger (Subagent)**: バグの原因究明（高精度）。バグの調査、再現、根本原因の分析を行う。（モデル: `openai/gpt-5.2-codex`）
+- **test_designer (Subagent)**: テスト仕様の設計（高精度）。機能変更に合わせてテストの仕様書（test-spec）を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
 
 ### 3. 検証と監査フェーズ
-- **tester (Subagent)**: テスト実行と失敗報告。テストを実行し、失敗した場合は failure-report を作成して報告する。
-- **code_reviewer (Subagent)**: コードの厳格な査読（高推論）。変更されたコードの厳格な査読を行う。
-- **doc_auditor (Subagent)**: ドキュメントの乖離チェック。実装とドキュメントにズレがないかチェックし、更新指示書を作成する。
+- **tester (Subagent)**: テスト実行と失敗報告。テストを実行し、失敗した場合は failure-report を作成して報告する。（モデル: `openai/gpt-5.2-codex`）
+- **code_reviewer (Subagent)**: コードの厳格な査読（高推論）。変更されたコードの厳格な査読を行う。（モデル: `openai/gpt-5.2-codex`）
+- **doc_auditor (Subagent)**: ドキュメントの乖離チェック。実装とドキュメントにズレがないかチェックし、更新指示書を作成する。（モデル: `openai/gpt-5.2-codex`）
 
 ## ワークフローと「関所」
 
