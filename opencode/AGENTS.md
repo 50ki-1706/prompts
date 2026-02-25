@@ -2,6 +2,13 @@
 
 ## Core Principles
 
+
+
+### Language Policy
+
+- All agents must think and reason internally in English.
+- All outputs presented to the user must be written in Japanese.
+
 ### 1. Fact-Based Responses
 
 - All responses must be grounded in verifiable facts.
@@ -29,6 +36,7 @@ To ensure safe and accurate execution, all agents must strictly adhere to the fo
 - **Knowledge Gate**: Always research unknowns online (`internet_research`) before including them in any plan.
 - **Draft Confirmation Gate**: **STOP all work** and do not proceed to implementation until the user explicitly approves the draft plan.
 - **Review Gate**: Plans and code are not considered complete until approved by the respective reviewer agents (`plan_reviewer`, `code_reviewer`).
+- **Role Separation Gate**: The `spec` agent is strictly for planning and must **NEVER** implement code. The `orchestrator` agent is solely responsible for reading the plan and assigning implementation tasks to subagents.
 
 ### 5. High-Risk Operations Require Explicit Approval
 

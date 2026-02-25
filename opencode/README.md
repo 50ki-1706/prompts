@@ -82,6 +82,35 @@ mv "${tmp}" "${CONFIG}"
 echo "Synced all prompts from ${PROMPTS_DIR} into ${CONFIG}"
 ```
 
+## エージェント間連携図
+
+```mermaid
+graph TD
+    User((User)) --> spec[spec/Primary]
+    
+    subgraph Planning Phase
+        spec --> explore[explore]
+        spec --> research[internet_research]
+        spec --> draft[draft_planner]
+        spec --> plan_rev[plan_reviewer]
+    end
+    
+    spec -- "Approved Plan" --> orch[orchestrator/Primary]
+    
+    subgraph Implementation Phase
+        orch --> general[general]
+        orch --> implement[implement]
+        orch --> debugger[debugger]
+        orch --> test_des[test_designer]
+    end
+    
+    subgraph Verification Phase
+        orch --> tester[tester]
+        orch --> code_rev[code_reviewer]
+        orch --> doc_aud[doc_auditor]
+    end
+```
+
 ## エージェント構成
 
 ### 1. 仕様策定と計画フェーズ（メイン：spec）
