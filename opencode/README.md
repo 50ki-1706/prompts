@@ -143,7 +143,7 @@ graph TD
 ### 3. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
 - **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、実装・統合・検証・監査を委譲する。プロダクトコードは編集しない。（モデル: `opencode/glm-5`）
 - **executor (Subagent)**: 統合実装エージェント。`mode: surgical`（局所修正）と `mode: investigative`（調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
-- **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `openai/gpt-5.2-codex`）
+- **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `github-copilot/claude-sonnet-4.6`）
 - **debugger (Subagent)**: バグ調査・再現・根本原因分析。証拠ベースのレポートを作成し、修正方針の材料を提供する。（モデル: `openai/gpt-5.2-codex`）
 - **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更やテスト方針が曖昧な場合に test-spec を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
 
@@ -207,3 +207,5 @@ graph TD
 - `.agents/state/`: 実行状態や進行管理メモ
 - `.agents/reports/`: テスト失敗、デバッグ、ドキュメント乖離レポート
 - `.agents/research/`: 外部リサーチ結果
+
+<!-- TODO: fastエージェントのclossificationにドキュメント作成を追加 -->

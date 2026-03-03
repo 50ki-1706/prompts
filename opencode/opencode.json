@@ -333,7 +333,7 @@
     },
     "integrator": {
       "mode": "subagent",
-      "model": "openai/gpt-5.2-codex",
+      "model": "github-copilot/claude-sonnet-4.6",
       "description": "Integration/merge subagent for combining multiple task outputs, resolving conflicts/interface mismatches, and applying minimal consistency fixes with focused checks.",
       "tools": {
         "read": true,
