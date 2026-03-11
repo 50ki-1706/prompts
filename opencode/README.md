@@ -136,21 +136,21 @@ graph TD
 
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
-- **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/antigravity-gemini-3-flash-preview`）
+- **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/antigravity-gemini-3.1-pro-preview-customtools`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3-flash-preview`）
-- **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.2-codex`）
+- **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `github-copilot/claude-opus-4.6`）
 
 ### 3. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
-- **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、実装・統合・検証・監査を委譲する。プロダクトコードは編集しない。（モデル: `opencode/glm-5`）
+- **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、実装・統合・検証・監査を委譲する。プロダクトコードは編集しない。（モデル: `openai/gpt-5.4`）
 - **executor (Subagent)**: 統合実装エージェント。`mode: surgical`（局所修正）と `mode: investigative`（調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
-- **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `github-copilot/claude-sonnet-4.6`）
-- **debugger (Subagent)**: バグ調査・再現・根本原因分析。証拠ベースのレポートを作成し、修正方針の材料を提供する。（モデル: `openai/gpt-5.2-codex`）
+- **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `openai/gpt-5.3-codex`）
+- **debugger (Subagent)**: バグ調査・再現・根本原因分析。証拠ベースのレポートを作成し、修正方針の材料を提供する。（モデル: `openai/gpt-5.3-codex`）
 - **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更やテスト方針が曖昧な場合に test-spec を作成する。（モデル: `google/antigravity-claude-opus-4-6-thinking`）
 
 ### 4. 検証と監査フェーズ
-- **tester (Subagent)**: テスト実行と結果報告。`STATUS: PASS | FAIL | BLOCKED` でゲート判定可能な形式で返す。（モデル: `openai/gpt-5.2-codex`）
-- **code_reviewer (Subagent)**: コードレビュー。`STATUS: APPROVED | REJECTED` と重大度順 findings を返す。（モデル: `openai/gpt-5.2-codex`）
-- **doc_auditor (Subagent)**: ドキュメント乖離監査。`STATUS: PASS | DRIFT_FOUND | BLOCKED` と更新指示書を返す。（モデル: `openai/gpt-5.2-codex`）
+- **tester (Subagent)**: テスト実行と結果報告。`STATUS: PASS | FAIL | BLOCKED` でゲート判定可能な形式で返す。（モデル: `github-copilot/gpt-5.1-codex-mini`）
+- **code_reviewer (Subagent)**: コードレビュー。`STATUS: APPROVED | REJECTED` と重大度順 findings を返す。（モデル: `openai/gpt-5.3-codex`）
+- **doc_auditor (Subagent)**: ドキュメント乖離監査。`STATUS: PASS | DRIFT_FOUND | BLOCKED` と更新指示書を返す。（モデル: `openai/gpt-5.3-codex`）
 
 ## ワークフローと「関所」
 

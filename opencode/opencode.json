@@ -7,172 +7,12 @@
       ".git/**"
     ]
   },
-  "theme": "opencode",
   "autoupdate": true,
-  "model": "openai/gpt-5.2-codex",
-  "small_model": "openai/gpt-5.2-codex",
+  "model": "openai/gpt-5.4",
+  "small_model": "openai/gpt-5.3-codex-spark",
   "plugin": [
     "opencode-antigravity-auth@latest"
   ],
-  "provider": {
-    "google": {
-      "models": {
-        "antigravity-gemini-3.1-pro": {
-          "name": "Gemini 3.1 Pro (Antigravity)",
-          "limit": {
-            "context": 1048576,
-            "output": 65535
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "variants": {
-            "low": {
-              "thinkingLevel": "low"
-            },
-            "high": {
-              "thinkingLevel": "high"
-            }
-          }
-        },
-        "antigravity-gemini-3-flash": {
-          "name": "Gemini 3 Flash (Antigravity)",
-          "limit": {
-            "context": 1048576,
-            "output": 65536
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "variants": {
-            "minimal": {
-              "thinkingLevel": "minimal"
-            },
-            "low": {
-              "thinkingLevel": "low"
-            },
-            "medium": {
-              "thinkingLevel": "medium"
-            },
-            "high": {
-              "thinkingLevel": "high"
-            }
-          }
-        },
-        "antigravity-claude-sonnet-4-6": {
-          "name": "Claude Sonnet 4.6 (Antigravity)",
-          "limit": {
-            "context": 200000,
-            "output": 64000
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        },
-        "antigravity-claude-opus-4-6-thinking": {
-          "name": "Claude Opus 4.6 Thinking (Antigravity)",
-          "limit": {
-            "context": 200000,
-            "output": 64000
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          },
-          "variants": {
-            "low": {
-              "thinkingConfig": {
-                "thinkingBudget": 8192
-              }
-            },
-            "max": {
-              "thinkingConfig": {
-                "thinkingBudget": 32768
-              }
-            }
-          }
-        },
-        "gemini-3-flash-preview": {
-          "name": "Gemini 3 Flash Preview (Gemini CLI)",
-          "limit": {
-            "context": 1048576,
-            "output": 65536
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        },
-        "gemini-3.1-pro-preview": {
-          "name": "Gemini 3.1 Pro Preview (Gemini CLI)",
-          "limit": {
-            "context": 1048576,
-            "output": 65535
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        },
-        "gemini-3.1-pro-preview-customtools": {
-          "name": "Gemini 3.1 Pro Preview Custom Tools (Gemini CLI)",
-          "limit": {
-            "context": 1048576,
-            "output": 65535
-          },
-          "modalities": {
-            "input": [
-              "text",
-              "image",
-              "pdf"
-            ],
-            "output": [
-              "text"
-            ]
-          }
-        }
-      }
-    }
-  },
   "mcp": {
     "chrome-devtools": {
       "type": "local",
@@ -212,7 +52,7 @@
     "fast": {
       "mode": "primary",
       "model": "google/gemini-3.1-pro-preview-customtools",
-      "description": "Primary entrypoint for small, clear, single-shot developer requests (bug fixes, code investigation, small coding). Classifies and delegates to subagents; does not directly inspect repository files or implement code changes.",
+      "description": "Primary entrypoint for smis:issue state:open all, clear, single-shot developer requests (bug fixes, code investigation, small coding). Classifies and delegates to subagents; does not directly inspect repository files or implement code changes.",
       "tools": {
         "read": false,
         "grep": false,
@@ -256,7 +96,7 @@
     },
     "orchestrator": {
       "mode": "subagent",
-      "model": "opencode/glm-5",
+      "model": "openai/gpt-5.4",
       "description": "Checkpointed execution orchestrator for approved spec plans. Creates task/state artifacts, delegates implementation and verification subagents, and returns progress plus gate status (IN_PROGRESS or terminal).",
       "tools": {
         "read": true,
@@ -278,11 +118,11 @@
           "*": "deny"
         }
       },
-      "prompt": "Role: Implementation Orchestrator (`orchestrator`)\n\nGoal:\nExecute an approved plan by decomposing it into task manifests, delegating to subagents, and enforcing verification gates.\nUse checkpointed, resumable execution so nested subagent runs do not appear frozen to the user.\n\nInvocation Context:\n- You are a subagent called by `spec` after the user approves the plan (`y`).\n- `spec` remains the user-facing agent.\n- Return progress, blockers, and gate outcomes so `spec` can relay them to the user.\n- You may be invoked multiple times for the same approved plan; persist and resume via `.agents/state/`.\n\nAllowed:\n- Read plans and repository context.\n- Create/update orchestration artifacts in `.agents/tasks/`, `.agents/state/`, and `.agents/reports/`.\n- Delegate implementation to `executor`, investigation to `debugger`, integration to `integrator`, testing to `tester`, review to `code_reviewer`, doc audit to `doc_auditor`, and test-spec work to `test_designer`.\n\nForbidden:\n- Editing application/source files directly.\n- Skipping review/test gates when required by policy.\n- Asking the user to switch agents manually.\n\nWorkflow:\n1. Load existing orchestration state from `.agents/state/` if present; otherwise initialize it.\n2. Read the approved final plan and identify independent work units.\n3. Create/update task manifests (scope, target files, acceptance checks, risk level, executor mode).\n4. Delegate implementation (checkpointed):\n   - `executor` with `mode: surgical` for pinpoint patches.\n   - `executor` with `mode: investigative` when file discovery/analysis is needed.\n5. If multiple implementations run in parallel, delegate final merge/cleanup to `integrator`.\n6. Ensure test strategy exists:\n   - Call `test_designer` for medium/high-risk changes or when tests are unclear.\n7. Run verification and gate checks:\n   - `tester` (STATUS: PASS/FAIL)\n   - `code_reviewer` (STATUS: APPROVED/REJECTED)\n   - `doc_auditor` (STATUS: PASS/DRIFT_FOUND)\n8. Aggregate results and report completion/blockers to the user.\n\nExecution Control Rules (important):\n- Perform at most one major phase advance per invocation, and at most one potentially long-running subagent delegation (`executor` / `integrator` / `tester` / `code_reviewer` / `doc_auditor` / `test_designer`) before returning a checkpoint.\n- Persist state after each meaningful change (task created, subagent result received, gate result updated).\n- Prefer sequential delegation for stability. Use parallel delegation only for clearly independent tasks and small batches.\n- Do not loop indefinitely on retries/rework. If the same gate fails repeatedly or progress cannot be made, return `BLOCKED` with the exact reason and next decision needed.\n- If the current phase repeats without any state/artifact delta, treat it as a stall and return `BLOCKED` (suspected orchestration loop/stall).\n\nOutput Contract:\n- Always output in Japanese.\n- `STATUS: IN_PROGRESS | COMPLETED | BLOCKED | NEEDS_INPUT`\n- `PHASE:` current phase name\n- `SCOPE:` current task(s) or gate scope\n- `PROGRESS_DELTA:` what changed in this invocation (artifacts updated, subagent result received, gate advanced)\n- `NEXT_ACTION:` exact next orchestrator step or question for `spec` to relay\n- `STATE_FILE:` current orchestration state path (if used)\n- Do not mark complete unless required gate outputs are explicitly successful.\n- If blocked and user input is needed, state the exact question/options for `spec` to relay.\n\nRules:\n- Think internally in English, but output in Japanese.\n- Respect approved plan scope; if a new approach is needed, stop and ask the user.\n- Keep a clear execution trail in `.agents/state/` and/or `.agents/reports/`.\n- Do not hide a long multi-phase nested execution behind a single response; return checkpoints frequently."
+      "prompt": "Role: Implementation Orchestrator (`orchestrator`)\n\nGoal:\nExecute an approved plan by decomposing it into task manifests, delegating to subagents, and enforcing verification gates.\nUse checkpointed, resumable execution so nested subagent runs do not appear frozen to the user.\n\nInvocation Context:\n- You are a subagent called by `spec` after the user approves the plan (`y`).\n- `spec` remains the user-facing agent.\n- Return progress, blockers, and gate outcomes so `spec` can relay them to the user.\n- You may be invoked multiple times for the same approved plan; persist and resume via `.agents/state/`.\n\nAllowed:\n- Read plans and repository context.\n- Create/update orchestration artifacts in `.agents/tasks/`, `.agents/state/`, and `.agents/reports/`.\n- Delegate implementation to `executor`, investigation to `debugger`, integration to `integrator`, testing to `tester`, review to `code_reviewer`, doc audit to `doc_auditor`, and test-spec work to `test_designer`.\n\nForbidden:\n- Editing application/source files directly.\n- Skipping review/teEst gates when required by policy.\n- Asking the user to switch agents manually.\n\nWorkflow:\n1. Load existing orchestration state from `.agents/state/` if present; otherwise initialize it.\n2. Read the approved final plan and identify independent work units.\n3. Create/update task manifests (scope, target files, acceptance checks, risk level, executor mode).\n4. Delegate implementation (checkpointed):\n   - `executor` with `mode: surgical` for pinpoint patches.\n   - `executor` with `mode: investigative` when file discovery/analysis is needed.\n5. If multiple implementations run in parallel, delegate final merge/cleanup to `integrator`.\n6. Ensure test strategy exists:\n   - Call `test_designer` for medium/high-risk changes or when tests are unclear.\n7. Run verification and gate checks:\n   - `tester` (STATUS: PASS/FAIL)\n   - `code_reviewer` (STATUS: APPROVED/REJECTED)\n   - `doc_auditor` (STATUS: PASS/DRIFT_FOUND)\n8. Aggregate results and report completion/blockers to the user.\n\nExecution Control Rules (important):\n- Perform at most one major phase advance per invocation, and at most one potentially long-running subagent delegation (`executor` / `integrator` / `tester` / `code_reviewer` / `doc_auditor` / `test_designer`) before returning a checkpoint.\n- Persist state after each meaningful change (task created, subagent result received, gate result updated).\n- Prefer sequential delegation for stability. Use parallel delegation only for clearly independent tasks and small batches.\n- Do not loop indefinitely on retries/rework. If the same gate fails repeatedly or progress cannot be made, return `BLOCKED` with the exact reason and next decision needed.\n- If the current phase repeats without any state/artifact delta, treat it as a stall and return `BLOCKED` (suspected orchestration loop/stall).\n\nOutput Contract:\n- Always output in Japanese.\n- `STATUS: IN_PROGRESS | COMPLETED | BLOCKED | NEEDS_INPUT`\n- `PHASE:` current phase name\n- `SCOPE:` current task(s) or gate scope\n- `PROGRESS_DELTA:` what changed in this invocation (artifacts updated, subagent result received, gate advanced)\n- `NEXT_ACTION:` exact next orchestrator step or question for `spec` to relay\n- `STATE_FILE:` current orchestration state path (if used)\n- Do not mark complete unless required gate outputs are explicitly successful.\n- If blocked and user input is needed, state the exact question/options for `spec` to relay.\n\nRules:\n- Think internally in English, but output in Japanese.\n- Respect approved plan scope; if a new approach is needed, stop and ask the user.\n- Keep a clear execution trail in `.agents/state/` and/or `.agents/reports/`.\n- Do not hide a long multi-phase nested execution behind a single response; return checkpoints frequently."
     },
     "explore": {
       "mode": "subagent",
-      "model": "google/antigravity-gemini-3-flash",
+      "model": "google/antigravity-gemini-3.1-pro-preview-customtools",
       "description": "Read-only repository investigation subagent for file discovery, symbol search, code reading, and factual summaries used by spec/fast/debugging.",
       "tools": {
         "read": true,
@@ -299,7 +139,7 @@
     },
     "plan_reviewer": {
       "mode": "subagent",
-      "model": "openai/gpt-5.2-codex",
+      "model": "github-copilot/claude-opus-4.6",
       "description": "Strict reviewer for plan and test-spec artifacts in .agents/plans/. Returns APPROVED/REJECTED with concrete required fixes for execution gates.",
       "tools": {
         "read": true
@@ -333,7 +173,7 @@
     },
     "integrator": {
       "mode": "subagent",
-      "model": "github-copilot/claude-sonnet-4.6",
+      "model": "openai/gpt-5.3-codex",
       "description": "Integration/merge subagent for combining multiple task outputs, resolving conflicts/interface mismatches, and applying minimal consistency fixes with focused checks.",
       "tools": {
         "read": true,
@@ -353,7 +193,7 @@
     },
     "code_reviewer": {
       "mode": "subagent",
-      "model": "openai/gpt-5.2-codex",
+      "model": "openai/gpt-5.3-codex",
       "description": "Strict post-change code review subagent focused on correctness and regression risk. Returns APPROVED/REJECTED with severity-ordered findings and required fixes.",
       "tools": {
         "read": true,
@@ -370,7 +210,7 @@
     },
     "doc_auditor": {
       "mode": "subagent",
-      "model": "openai/gpt-5.2-codex",
+      "model": "openai/gpt-5.3-codex",
       "description": "Documentation drift audit subagent that compares implementation vs docs/comments, writes drift reports in .agents/reports/, and returns PASS/DRIFT_FOUND/BLOCKED.",
       "tools": {
         "read": true,
@@ -389,7 +229,7 @@
     },
     "debugger": {
       "mode": "subagent",
-      "model": "openai/gpt-5.2-codex",
+      "model": "openai/gpt-5.3-codex",
       "description": "Bug reproduction and root-cause analysis subagent. Runs investigative commands, collects evidence, writes debug reports, and does not edit source code.",
       "tools": {
         "read": true,
@@ -443,7 +283,7 @@
     },
     "tester": {
       "mode": "subagent",
-      "model": "openai/gpt-5.2-codex",
+      "model": "github-copilot/gpt-5.1-codex-mini",
       "description": "Test execution and validation subagent. Runs requested checks, captures reproducible evidence, writes failure reports when needed, and returns PASS/FAIL/BLOCKED.",
       "tools": {
         "read": true,
