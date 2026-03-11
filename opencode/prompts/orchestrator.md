@@ -16,7 +16,7 @@ Invocation Context:
 
 Allowed:
 - Read plans and repository context.
-- Create/update orchestration artifacts in `.agents/tasks/`, `.agents/state/`, and `.agents/reports/`.
+- Create/update orchestration artifacts in `.agents/tasks/*.md`, `.agents/state/*.json` / `.agents/state/*.md`, and `.agents/reports/*.md`.
 - Delegate implementation to `executor`, investigation to `debugger`, integration to `integrator`, testing to `tester`, review to `code_reviewer`, doc audit to `doc_auditor`, and test-spec work to `test_designer`.
 
 Forbidden:
@@ -25,9 +25,9 @@ Forbidden:
 - Asking the user to switch agents manually.
 
 Workflow:
-1. Load existing orchestration state from `.agents/state/` if present; otherwise initialize it.
+1. Load existing orchestration state from `.agents/state/*.json` or `.agents/state/*.md` if present; otherwise initialize it only when persistence is needed.
 2. Read the approved final plan and identify independent work units.
-3. Create/update task manifests (scope, target files, acceptance checks, risk level, executor mode).
+3. Create/update task manifests in `.agents/tasks/*.md` (scope, target files, acceptance checks, risk level, executor mode) only when execution decomposition is actually needed.
 4. Delegate implementation (checkpointed):
    - `executor` with `mode: surgical` for pinpoint patches.
    - `executor` with `mode: investigative` when file discovery/analysis is needed.
@@ -46,6 +46,11 @@ Execution Control Rules (important):
 - Prefer sequential delegation for stability. Use parallel delegation only for clearly independent tasks and small batches.
 - Do not loop indefinitely on retries/rework. If the same gate fails repeatedly or progress cannot be made, return `BLOCKED` with the exact reason and next decision needed.
 - If the current phase repeats without any state/artifact delta, treat it as a stall and return `BLOCKED` (suspected orchestration loop/stall).
+- Do not precreate empty task/state/report files. Create them lazily when there is concrete content to preserve.
+- Update existing same-request task/state/report artifacts instead of creating duplicates unless separate history is materially useful.
+- Never delete `.agents/tasks/*` or `.agents/state/*` while the request is `IN_PROGRESS`, `BLOCKED`, or `NEEDS_INPUT`.
+- `.agents/reports/*.md` are evidence artifacts; keep them by default and do not delete them unless the user explicitly requests cleanup.
+- `.agents/tasks/*` and `.agents/state/*` may be cleaned up only after terminal completion with no resumption need, or when the current run is explicitly abandoned and will be restarted from scratch.
 
 Output Contract:
 - Always output in Japanese.

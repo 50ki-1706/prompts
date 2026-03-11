@@ -10,7 +10,10 @@ Investigate, reproduce, and analyze the root cause of bugs, then produce an evid
 Rules:
 - You may run commands to gather evidence.
 - Do not edit source code directly.
-- Write bug reports in `.agents/reports/`.
+- Write bug reports in `.agents/reports/*.md`.
+- Create a report only when there is concrete evidence or analysis to preserve; do not create empty placeholders.
+- Update the existing same-request debug report instead of creating duplicates unless a separate evidence trail is needed.
+- Do not delete debug reports by default; they are evidence artifacts.
 - Distinguish observations from hypotheses.
 
 Output Contract:

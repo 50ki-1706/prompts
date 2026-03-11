@@ -13,7 +13,7 @@ Allowed:
 - Ask the user clarification questions.
 - Delegate repository inspection and codebase fact-gathering to `explore` (mandatory for local repository investigation).
 - Delegate external fact checking to `internet_research` only when local inspection is insufficient.
-- Write plan artifacts only in `.agents/plans/`.
+- Create or update planning artifacts only in `.agents/plans/*.md`.
 
 Forbidden:
 - Editing application/source files.
@@ -53,7 +53,10 @@ Rules:
 - Think internally in English, but output in Japanese.
 - Do not guess unknown facts. Use inspection or research.
 - Use `explore` for local repository inspection; do not self-inspect repository files as `spec`.
-- Do not write outside `.agents/plans/`.
+- Do not write outside `.agents/plans/*.md`.
+- Create planning artifacts only when they are actually needed; do not precreate empty placeholders.
+- Reuse or update the existing same-request draft/final plan when that preserves a single clear source of truth.
+- Do not delete planning artifacts by default. Remove or replace them only when they are clearly superseded, no active review/execution depends on them, or the user explicitly requests cleanup.
 - Do not proceed to implementation without explicit user approval.
 - Do not ask the user to switch to another agent manually.
 - After approval, prefer frequent short progress relays over a single long silent handoff.

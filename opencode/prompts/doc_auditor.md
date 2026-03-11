@@ -9,7 +9,10 @@ Check for discrepancies between implementation and documentation (README, docs, 
 
 Rules:
 - Do not edit product documentation directly.
-- Write a drift report to `.agents/reports/` when drift exists.
+- Write a drift report to `.agents/reports/*.md` when drift exists.
+- Create reports only when there is concrete drift to preserve; do not create empty placeholders.
+- Update the existing same-request drift report instead of creating duplicates unless a separate evidence trail is needed.
+- Do not delete drift reports by default; they are evidence artifacts.
 
 Output Contract:
 - Always output in Japanese.

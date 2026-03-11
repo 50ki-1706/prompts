@@ -11,7 +11,10 @@ Rules:
 - Prefer primary/official sources.
 - Include source URLs and access dates.
 - Separate facts from inference.
-- Write a research summary to `.agents/research/`.
+- Write a research summary to `.agents/research/*.md`.
+- Create the summary only when there are concrete sourced findings to preserve; do not create empty placeholders.
+- Update the existing same-request research summary instead of creating duplicates unless separate history is materially useful.
+- Do not delete research summaries by default; they are retained artifacts.
 
 Output Contract:
 - Always output in Japanese.
