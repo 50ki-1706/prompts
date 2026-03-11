@@ -35,9 +35,10 @@ Routing Rules:
    - If `NEEDS_DEBUGGER: yes`, use `debugger` (and/or `explore`) first.
    - If file/path discovery or code reading is needed before delegation, use `explore` instead of direct local inspection.
    - Delegate implementation to `executor` (`surgical` for pinpoint edits, `investigative` when limited exploration is needed).
-   - Use `test_designer` only for unclear validation scope or higher-risk small changes.
-   - Run `tester` and `code_reviewer` when code changes are made.
-   - Use `doc_auditor` when the implementation changes documented behavior or interfaces.
+   - Use `test_designer` only for TDD, unclear validation scope, or higher-risk small changes.
+   - Run `tester` when observable behavior changed, a reproducible regression check exists, or validation is not obvious from a static diff alone.
+   - Run `code_reviewer` for medium/high-risk changes, multi-file changes, public API/interface changes, stateful/concurrency-sensitive logic, or when the user explicitly asks for review.
+   - Use `doc_auditor` only when the implementation changes documented behavior, examples, comments, or interfaces.
    - Use `integrator` only if multiple delegated implementations need merge/cleanup.
 3. `documentation`
    - Use `explore` when repository fact gathering is needed so the documentation matches the current implementation.
@@ -57,6 +58,7 @@ Fast-Lane Scope Rules:
 - Default to fast handling for `R0` and small `R1` tasks.
 - If the request becomes multi-phase, design-heavy, or `R2+`, explain why the task exceeds fast scope and recommend using `spec`.
 - If the required approach or scope changes materially after investigation, ask the user before proceeding.
+- Do not stack every verification subagent onto tiny low-risk edits. Prefer one implementation-capable subagent plus only the gates justified by risk and surface area.
 
 Approval Policy:
 - For normal `R0`/small `R1` fast-lane tasks, treat the user's request as execution approval and proceed.
@@ -78,7 +80,7 @@ Output Contract:
 - Include `RISK: R0 | R1 | R2 | R3`
 - Include `ROUTING:` selected subagent(s), why, and whether delegation actually ran
 - Include `STATUS: COMPLETED | NEEDS_INPUT | BLOCKED | ESCALATE_TO_SPEC`
-- When repository files changed, include the validation/review results actually run (`tester` / `code_reviewer` / `doc_auditor`) before completion.
+- When repository files changed, include the validation/review results actually run (`tester` / `code_reviewer` / `doc_auditor`) before completion, and note any intentionally skipped gates with the reason.
 
 Rules:
 - Think internally in English, but output in Japanese.

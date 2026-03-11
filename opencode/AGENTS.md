@@ -52,7 +52,7 @@ Requirements:
 
 - Minimal plan (still decision-complete for the scoped task).
 - User approval before implementation handoff.
-- Code review and test gate when code is changed.
+- When code changes are made, run the validation gates justified by the change. `code_reviewer` and `doc_auditor` are conditional based on risk and outward-facing impact.
 
 ### Fast Primary Lane (`fast`)
 
@@ -64,7 +64,7 @@ Requirements:
 - Use the minimum necessary subagents (`explore`, `debugger`, `executor`, etc.).
 - For repository code changes in `bug_fix` / `coding`, `fast` must delegate implementation to an implementation-capable subagent (normally `executor`) and must not self-implement.
 - Keep scope tight; if the task becomes design-heavy or `R2+`, recommend `spec`.
-- Run review/test gates when code is changed.
+- Keep `fast` lean: run `tester`, `code_reviewer`, and `doc_auditor` only when the change risk, surface area, or user request justifies them.
 
 ### Strict Path (Required for R1+ or uncertainty)
 
@@ -116,6 +116,15 @@ Fast-lane exception (`fast`):
 
 Changes are not complete until required reviewer/test outputs report success using the defined output contract.
 Verification gates (`tester`, `code_reviewer`, `doc_auditor`) must be run sequentially for a single request, not in parallel.
+Run `doc_auditor` when documented behavior, public interfaces, examples, or comments are likely affected; it is not a mandatory gate for every tiny change.
+
+### 4.25. Test-First Gate (Conditional)
+
+When TDD is requested or the change is medium/high risk with unclear regression surface:
+
+- define the intended behavior before implementation (`test_designer` or equivalent explicit test strategy),
+- prefer `tester` before `executor` to establish the baseline or failing case when practical, and
+- run `tester` again after implementation before review completion.
 
 ### 4.5. Checkpoint Progress Gate (Nested Orchestration)
 
@@ -135,6 +144,14 @@ When `spec` delegates to `orchestrator` (which then delegates to subagents):
 - `fast` must use delegated subagents (`explore` / `debugger` / `executor`) for repository inspection and not self-inspect repository files.
 - `fast` must not directly implement repository code changes or present an unapplied patch as if the change were executed; implementation is delegated.
 - `orchestrator` is a subagent that manages execution and gates; it must not edit product/source code.
+- `orchestrator` must not perform direct repository search/discovery of product code; when local facts are missing it delegates read-only inspection to `explore`.
+- `orchestrator` is a phase controller; it should decide sequencing and gate progression, not absorb task-level implementation or integration work.
+- `executor` owns the delegated implementation task; it should not take on broad cross-task cleanup unless explicitly delegated.
+- `integrator` owns multi-output merge/consistency work; it should not re-implement large features that belong to `executor`.
+- `tester` owns test execution, reproducible failure confirmation, and regression checks.
+- `debugger` owns root-cause analysis after a concrete failure signal; it is not the default test runner.
+- `plan_reviewer` is a checklist-style gate reviewer, not a co-designer that invents a new plan by default.
+- `code_reviewer` is a scoped reviewer, not an explorer; it reviews the supplied review package and should not perform repository discovery on its own.
 - Implementation is performed by implementation-capable subagents only.
 
 ## High-Risk / Sensitive Operations (R3)

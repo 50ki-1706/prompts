@@ -98,35 +98,39 @@ echo "Synced all prompts from ${PROMPTS_DIR} into ${CONFIG}"
 graph TD
     User((User)) --> fast[fast/Primary]
     User((User)) --> spec[spec/Primary]
-    
+
+    explore[explore/Subagent]
+
     subgraph Fast Primary Lane
-        fast --> explore_fast[explore]
-        fast --> debugger_fast[debugger]
+        fast --> explore
+        fast -. "必要時" .-> debugger_fast[debugger]
         fast --> exec_fast[executor]
-        fast --> tester_fast[tester]
-        fast --> review_fast[code_reviewer]
-        fast --> doc_aud_fast[doc_auditor]
+        fast -. "必要時" .-> tester_fast[tester]
+        fast -. "条件付き" .-> review_fast[code_reviewer]
+        fast -. "条件付き" .-> doc_aud_fast[doc_auditor]
     end
-    
+
     subgraph Planning Phase
-        spec --> explore[explore]
+        spec --> explore
         spec --> research[internet_research]
         spec --> plan_rev[plan_reviewer]
     end
-    
+
     spec -- "y承認後に自動委譲" --> orch[orchestrator/Subagent]
-    
-    subgraph Implementation & Integration Phase
+
+    orch -. "必要時" .-> explore
+
+    subgraph Test Strategy & Implementation Phase
+        orch -. "中/高リスク・TDD時" .-> test_des[test_designer]
         orch --> exec[executor]
-        orch --> integ[integrator]
-        orch --> debugger[debugger]
-        orch --> test_des[test_designer]
+        orch -. "複数成果物時" .-> integ[integrator]
+        orch -. "原因分析時" .-> debugger[debugger]
     end
-    
+
     subgraph Verification Phase
         orch --> tester[tester]
         orch --> code_rev[code_reviewer]
-        orch --> doc_aud[doc_auditor]
+        orch -. "docs/interface変更時" .-> doc_aud[doc_auditor]
     end
 ```
 
@@ -134,24 +138,28 @@ graph TD
 
 ### 1. クイック実行フェーズ（メイン：fast）
 - **fast (Primary)**: 単発のコード調査・小さな実装変更・ドキュメント生成/更新向けの高速エージェント。依頼を `research / implementation / documentation` に分類し、実装系では `INTENT: fix | feature | refactor` と `NEEDS_DEBUGGER: yes | no` を付けた上で、必要最小限のサブエージェントへ委譲する。（モデル: `openai/gpt-5.4`）
+- `fast` は軽量経路を優先し、`code_reviewer` と `doc_auditor` は常設ではなく条件付きで起動する。
 
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `openai/gpt-5.4`）
-- **explore (Subagent)**: コードベース調査（read-only）。計画やデバッグのための事実確認を行う。（モデル: `google/gemini-3.1-flash-lite-preview`）
+- **explore (Subagent)**: 共通のコードベース調査（read-only）。`fast` / `spec` / `orchestrator` が必要なローカル事実確認を委譲する。（モデル: `google/gemini-3.1-flash-lite-preview`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3.1-flash-lite-preview`）
 - **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `github-copilot/claude-opus-4.6`）
+- `plan_reviewer` は別案を作る役ではなく、計画の抜け漏れと実行可能性を採点するチェック役として扱う。
 
 ### 3. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
-- **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、実装・統合・検証・監査を委譲する。プロダクトコードは編集しない。（モデル: `openai/gpt-5.4`）
-- **executor (Subagent)**: 統合実装エージェント。`mode: surgical`（局所修正）と `mode: investigative`（調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
-- **integrator (Subagent)**: 並列タスクの統合作業。変更の接着、競合解消、整合性調整を担当する。（モデル: `opencode/glm-5`）
-- **debugger (Subagent)**: バグ調査・再現・根本原因分析。証拠ベースのレポートを作成し、修正方針の材料を提供する。（モデル: `openai/gpt-5.3-codex`）
-- **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更やテスト方針が曖昧な場合に test-spec を作成する。（モデル: `github-copilot/claude-opus-4.6`）
+- **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、フェーズ順序と次に呼ぶサブエージェントを決める。プロダクトコードは編集しない。（モデル: `openai/gpt-5.4`）
+- `orchestrator` は司令塔であり、プロダクトコードの探索も直接行わない。追加のローカル事実が必要な場合は `explore` に委譲する。
+- **executor (Subagent)**: 単一タスクの実装担当。`mode: surgical`（局所修正）と `mode: investigative`（必要最小限の調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
+- **integrator (Subagent)**: 複数成果物の統合作業。変更の接着、競合解消、型/インターフェース整合を担当する。（モデル: `opencode/glm-5`）
+- **debugger (Subagent)**: 原因分析専任。失敗シグナルや再現結果を受けて根本原因分析を行い、証拠ベースのレポートを作成する。（モデル: `openai/gpt-5.3-codex`）
+- **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更、TDD、またはテスト方針が曖昧な場合に先に test-spec を作成する。（モデル: `github-copilot/claude-opus-4.6`）
 
 ### 4. 検証と監査フェーズ
-- **tester (Subagent)**: テスト実行と結果報告。`STATUS: PASS | FAIL | BLOCKED` でゲート判定可能な形式で返す。（モデル: `github-copilot/gpt-5.1-codex-mini`）
+- **tester (Subagent)**: テスト実行と結果報告。テスト実行、失敗再現、回帰確認を担当し、`STATUS: PASS | FAIL | BLOCKED` で返す。（モデル: `openai/gpt-5.1-codex-mini`）
 - **code_reviewer (Subagent)**: コードレビュー。`STATUS: APPROVED | REJECTED` と重大度順 findings を返す。（モデル: `openai/gpt-5.3-codex`）
-- **doc_auditor (Subagent)**: ドキュメント乖離監査。`STATUS: PASS | DRIFT_FOUND | BLOCKED` と更新指示書を返す。（モデル: `openai/gpt-5.3-codex`）
+- `code_reviewer` は review package ベースでレビューし、探索役を兼ねない。文脈不足時は自力探索せず、必要な差分/補足文脈を差し戻す。
+- **doc_auditor (Subagent)**: ドキュメント乖離監査。公開インターフェースや文書化済み挙動に変化がある場合に実行し、`STATUS: PASS | DRIFT_FOUND | BLOCKED` と更新指示書を返す。（モデル: `openai/gpt-5.3-codex`）
 
 ## ワークフローと「関所」
 
@@ -161,8 +169,9 @@ graph TD
 ### 実行経路（Path）
 
 - **fast-path**: `R0`（小さく明確な変更）向け。ローカル調査中心で最小限の計画を作成し、ユーザー承認後に実装へ進む。
-- **fast primary lane (`fast`)**: 単発の調査・小さな実装・ドキュメント生成向け。依頼を `research / implementation / documentation` に分類し、`implementation` では `fix / feature / refactor` を副属性で扱いながら `explore` / `debugger` / `executor` / `doc_auditor` などへ最小委譲し、必要な検証ゲートのみ実行する。
+- **fast primary lane (`fast`)**: 単発の調査・小さな実装・ドキュメント生成向け。依頼を `research / implementation / documentation` に分類し、`implementation` では `fix / feature / refactor` を副属性で扱いながら `explore` / `debugger` / `executor` / `tester` / `code_reviewer` / `doc_auditor` などへ最小委譲し、必要なゲートだけを条件付きで実行する。
   - `fast` はリポジトリ調査（ファイル探索・コード読取・構造確認）を自前で行わず、`explore`（または再現調査が必要な場合は `debugger`）へ委譲する。
+  - `fast` では tiny な単一ファイル修正に対して reviewer/doc audit を常時積まず、変更リスク・公開面影響・ユーザー要求に応じて起動する。
 - **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
 - 計画主導経路（`fast-path` / `strict-path`）では、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
 
@@ -174,10 +183,10 @@ graph TD
 4. **計画作成（spec）**: `spec` が `.agents/plans/` に計画成果物（draft/final plan、必要なら補足）を作成する。
 5. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
 6. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
-7. **自動移行とタスク分割（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でタスクマニフェスト作成・委譲・ゲート進行を行い、各チェックポイントを `spec` が中継する。
-8. **統合作業（必要時）**: 並列タスクの接着・競合解消は `integrator` が担当する。
-9. **テスト仕様設計（条件付き）**: 中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が test-spec を作成する。
-10. **検証と監査（最終ゲート）**: `tester`、`code_reviewer`、`doc_auditor` を統合済み差分に対して逐次実行し、各 `STATUS` が成功状態であることを確認して完了とする。
+7. **自動移行とフェーズ制御（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でフェーズ順序・次に呼ぶサブエージェント・ゲート進行を決め、各チェックポイントを `spec` が中継する。
+8. **テスト仕様設計（条件付き / 先行）**: 中〜高リスク変更、TDD、またはテスト方針が不明な場合に `test_designer` が先に test-spec を作成する。
+9. **実装と統合**: 単一タスクの変更は `executor`、複数成果物の接着・競合解消は `integrator` が担当する。
+10. **検証と監査（最終ゲート）**: `tester` を実装前後または実装後に必要な順序で実行し、その後 `code_reviewer`、必要時のみ `doc_auditor` を逐次実行して完了とする。
 
 ### 主要な関所（Gate）
 
@@ -187,8 +196,11 @@ graph TD
 - **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
 - **Checkpoint Progress Gate**: `spec`→`orchestrator`→各サブエージェントのネスト時は、`orchestrator` が `IN_PROGRESS` で段階的に返却し、`spec` が都度中継すること。長時間の無言ネスト実行を避ける。
 - **Sequential Verification Gate**: `tester` / `code_reviewer` / `doc_auditor` は同一依頼内で並列化せず、統合済みスコープを確定してから 1 ゲートずつ進めること。
+- **Test-First Gate（条件付き）**: TDD または中〜高リスク変更では、`test_designer` で期待挙動を固めてから `tester` → `executor` → `tester` の順を優先すること。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。`spec` / `fast` はリポジトリ調査を自前で行わず、`explore`（必要に応じて `debugger`）を使うこと。
+- **Exploration Ownership Gate**: リポジトリ探索（grep/glob ベースの発見・横断読取）は `explore` の役割とし、`orchestrator` と `code_reviewer` は必要な事実を委譲または受領して扱うこと。
+- **Boundary Gate**: `executor` は単一タスク実装、`integrator` は複数成果物の接着、`tester` は検証、`debugger` は原因分析、`plan_reviewer` は計画採点に責務を限定すること。
 
 ## 出力契約（Gate判定用）
 

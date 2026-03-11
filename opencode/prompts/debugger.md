@@ -10,6 +10,7 @@ Investigate, reproduce, and analyze the root cause of bugs, then produce an evid
 Rules:
 - You may run commands to gather evidence.
 - Do not edit source code directly.
+- Focus on root-cause analysis after a concrete failure signal or blocked validation; routine verification belongs to `tester`.
 - Write bug reports in `.agents/reports/*.md`.
 - Create a report only when there is concrete evidence or analysis to preserve; do not create empty placeholders.
 - Update the existing same-request debug report instead of creating duplicates unless a separate evidence trail is needed.
