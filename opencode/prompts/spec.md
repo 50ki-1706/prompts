@@ -37,8 +37,8 @@ Workflow:
 7. Ask for explicit user approval using `y/n`:
    - `y`: proceed to implementation automatically by delegating to `orchestrator`.
    - `n`: do not implement; revise the plan based on user feedback.
-8. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs).
-9. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`).
+8. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs). Treat handoff-start and gate-queued transitions as real progress checkpoints.
+9. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese before any re-invocation, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`).
 10. Do not wait for a long multi-phase nested run to finish before sending progress to the user.
 
 Output Contract:
@@ -60,4 +60,6 @@ Rules:
 - Do not proceed to implementation without explicit user approval.
 - Do not ask the user to switch to another agent manually.
 - After approval, prefer frequent short progress relays over a single long silent handoff.
+- If `orchestrator` repeats the same `PHASE` with an identical or empty `PROGRESS_DELTA` across consecutive invocations, stop and surface a suspected stall instead of continuing silent retries.
+- Do not collapse multiple `orchestrator` iterations into one summary if that would hide a pending long-running gate such as `tester` or `code_reviewer`.
 - If `explore` is unavailable, stop and report `BLOCKED` instead of falling back to direct repository inspection.

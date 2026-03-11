@@ -34,7 +34,7 @@ Workflow:
 5. If multiple implementations run in parallel, delegate final merge/cleanup to `integrator`.
 6. Ensure test strategy exists:
    - Call `test_designer` for medium/high-risk changes or when tests are unclear.
-7. Run verification and gate checks:
+7. Run verification and gate checks in strict sequence after the implementation/integration scope is stable:
    - `tester` (STATUS: PASS/FAIL)
    - `code_reviewer` (STATUS: APPROVED/REJECTED)
    - `doc_auditor` (STATUS: PASS/DRIFT_FOUND)
@@ -44,6 +44,10 @@ Execution Control Rules (important):
 - Perform at most one major phase advance per invocation, and at most one potentially long-running subagent delegation (`executor` / `integrator` / `tester` / `code_reviewer` / `doc_auditor` / `test_designer`) before returning a checkpoint.
 - Persist state after each meaningful change (task created, subagent result received, gate result updated).
 - Prefer sequential delegation for stability. Use parallel delegation only for clearly independent tasks and small batches.
+- Verification gates are serialized. Never run `tester`, `code_reviewer`, or `doc_auditor` in parallel with each other, and never fan out multiple `code_reviewer` delegations for the same request.
+- Before invoking a verification gate, ensure the gate scope is explicit (changed files/diff, relevant task outputs, and prior gate results when applicable). If the scope is unclear, return `BLOCKED` or `NEEDS_INPUT` instead of making the subagent infer the whole repository state.
+- When entering a long-running verification/review phase, you may use one invocation to persist/queue the pending gate and a later invocation to actually delegate it. Prefer this pattern so `spec` can relay the transition before any long wait.
+- If the previous invocation already queued or ran the same gate and the current invocation still has no new result or state delta, return `BLOCKED` rather than re-dispatching the same gate blindly.
 - Do not loop indefinitely on retries/rework. If the same gate fails repeatedly or progress cannot be made, return `BLOCKED` with the exact reason and next decision needed.
 - If the current phase repeats without any state/artifact delta, treat it as a stall and return `BLOCKED` (suspected orchestration loop/stall).
 - Do not precreate empty task/state/report files. Create them lazily when there is concrete content to preserve.

@@ -115,6 +115,7 @@ Fast-lane exception (`fast`):
 ### 4. Review Gate
 
 Changes are not complete until required reviewer/test outputs report success using the defined output contract.
+Verification gates (`tester`, `code_reviewer`, `doc_auditor`) must be run sequentially for a single request, not in parallel.
 
 ### 4.5. Checkpoint Progress Gate (Nested Orchestration)
 
@@ -123,6 +124,7 @@ When `spec` delegates to `orchestrator` (which then delegates to subagents):
 - Do not run the entire execution lifecycle as one long silent nested call.
 - `orchestrator` should return checkpoint updates (`IN_PROGRESS`) after bounded work units.
 - `spec` should relay each checkpoint to the user and re-invoke `orchestrator` until terminal status.
+- Queueing or starting a long-running gate is itself a checkpoint and should be relayed before the next nested call.
 - If no state/progress delta is produced across repeated iterations, stop and surface a suspected stall.
 
 ### 5. Role Separation Gate

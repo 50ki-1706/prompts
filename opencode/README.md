@@ -177,7 +177,7 @@ graph TD
 7. **自動移行とタスク分割（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でタスクマニフェスト作成・委譲・ゲート進行を行い、各チェックポイントを `spec` が中継する。
 8. **統合作業（必要時）**: 並列タスクの接着・競合解消は `integrator` が担当する。
 9. **テスト仕様設計（条件付き）**: 中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が test-spec を作成する。
-10. **検証と監査（最終ゲート）**: `tester`、`code_reviewer`、`doc_auditor` を実行し、各 `STATUS` が成功状態であることを確認して完了とする。
+10. **検証と監査（最終ゲート）**: `tester`、`code_reviewer`、`doc_auditor` を統合済み差分に対して逐次実行し、各 `STATUS` が成功状態であることを確認して完了とする。
 
 ### 主要な関所（Gate）
 
@@ -186,6 +186,7 @@ graph TD
 - **User Approval Gate**: `spec` 主導では実装前にユーザーの明示承認があること（`fast` は R0/小さなR1で依頼自体を承認として扱える）。
 - **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
 - **Checkpoint Progress Gate**: `spec`→`orchestrator`→各サブエージェントのネスト時は、`orchestrator` が `IN_PROGRESS` で段階的に返却し、`spec` が都度中継すること。長時間の無言ネスト実行を避ける。
+- **Sequential Verification Gate**: `tester` / `code_reviewer` / `doc_auditor` は同一依頼内で並列化せず、統合済みスコープを確定してから 1 ゲートずつ進めること。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。`spec` / `fast` はリポジトリ調査を自前で行わず、`explore`（必要に応じて `debugger`）を使うこと。
 
