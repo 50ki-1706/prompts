@@ -105,6 +105,7 @@ graph TD
         fast --> exec_fast[executor]
         fast --> tester_fast[tester]
         fast --> review_fast[code_reviewer]
+        fast --> doc_aud_fast[doc_auditor]
     end
     
     subgraph Planning Phase
@@ -132,7 +133,7 @@ graph TD
 ## エージェント構成
 
 ### 1. クイック実行フェーズ（メイン：fast）
-- **fast (Primary)**: 単発のコード修正・コード調査・小さな実装変更向けの高速エージェント。依頼を `bug_fix / research / coding` に分類し、必要最小限のサブエージェントへ委譲する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
+- **fast (Primary)**: 単発のコード調査・小さな実装変更・ドキュメント生成/更新向けの高速エージェント。依頼を `research / implementation / documentation` に分類し、実装系では `INTENT: fix | feature | refactor` と `NEEDS_DEBUGGER: yes | no` を付けた上で、必要最小限のサブエージェントへ委譲する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
 
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `google/gemini-3.1-pro-preview-customtools`）
@@ -160,7 +161,7 @@ graph TD
 ### 実行経路（Path）
 
 - **fast-path**: `R0`（小さく明確な変更）向け。ローカル調査中心で最小限の計画を作成し、ユーザー承認後に実装へ進む。
-- **fast primary lane (`fast`)**: 単発の修正・調査・小さな実装向け。依頼を分類して `explore` / `debugger` / `executor` などへ最小委譲し、必要な検証ゲートのみ実行する。
+- **fast primary lane (`fast`)**: 単発の調査・小さな実装・ドキュメント生成向け。依頼を `research / implementation / documentation` に分類し、`implementation` では `fix / feature / refactor` を副属性で扱いながら `explore` / `debugger` / `executor` / `doc_auditor` などへ最小委譲し、必要な検証ゲートのみ実行する。
   - `fast` はリポジトリ調査（ファイル探索・コード読取・構造確認）を自前で行わず、`explore`（または再現調査が必要な場合は `debugger`）へ委譲する。
 - **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
 - 計画主導経路（`fast-path` / `strict-path`）では、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
@@ -207,5 +208,3 @@ graph TD
 - `.agents/state/`: 実行状態や進行管理メモ
 - `.agents/reports/`: テスト失敗、デバッグ、ドキュメント乖離レポート
 - `.agents/research/`: 外部リサーチ結果
-
-<!-- TODO: fastエージェントのclossificationにドキュメント作成を追加 -->
