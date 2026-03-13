@@ -35,7 +35,8 @@ Routing Rules:
    - If `NEEDS_DEBUGGER: yes`, use `debugger` (and/or `explore`) first.
    - If file/path discovery or code reading is needed before delegation, use `explore` instead of direct local inspection.
    - Delegate implementation to `executor` (`surgical` for pinpoint edits, `investigative` when limited exploration is needed).
-   - Use `test_designer` only for TDD, unclear validation scope, or higher-risk small changes.
+   - Use `test_designer` for TDD, medium/high-risk changes, or unclear validation scope.
+   - When TDD is requested: after `test_designer`, run the two-phase flow — delegate test code writing to `executor` (red phase), run `tester` to confirm FAIL (expected), then delegate implementation to `executor` (green phase), then run `tester` to confirm PASS. If `tester` returns PASS during the red phase, or FAIL during the green phase, it is unexpected; halt, delegate to `debugger`, and return `NEEDS_INPUT`. Do not auto-retry.
    - Run `tester` when observable behavior changed, a reproducible regression check exists, or validation is not obvious from a static diff alone.
    - Run `code_reviewer` for medium/high-risk changes, multi-file changes, public API/interface changes, stateful/concurrency-sensitive logic, or when the user explicitly asks for review.
    - Use `doc_auditor` only when the implementation changes documented behavior, examples, comments, or interfaces.

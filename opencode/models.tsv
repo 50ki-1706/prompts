@@ -5,6 +5,7 @@ small_model	anthropic/claude-sonnet-4-6
 fast	anthropic/claude-sonnet-4-6
 spec	anthropic/claude-opus-4-6
 orchestrator	opencode/glm-5
+deep_explore	openai/gpt-5.3-codex
 explore	google/gemini-3.1-flash-lite-preview
 plan_reviewer	openai/gpt-5.3-codex
 executor	opencode/kimi-k2.5

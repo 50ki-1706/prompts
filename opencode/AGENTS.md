@@ -96,6 +96,7 @@ Do not hand off to implementation until:
 Use `internet_research` only when local inspection is insufficient and external facts are necessary.
 Do not force online research for purely local code changes.
 For primary agents (`spec`, `fast`), local inspection should normally be delegated to `explore` rather than performed directly.
+For R2+ architectural changes with unknown impact range, `spec` and `orchestrator` may delegate cross-cutting dependency and architecture investigation to `deep_explore` rather than `explore`.
 
 ### 3. User Approval Gate
 
@@ -118,15 +119,26 @@ Changes are not complete until required reviewer/test outputs report success usi
 Verification gates (`tester`, `code_reviewer`, `doc_auditor`) must be run sequentially for a single request, not in parallel.
 Run `doc_auditor` when documented behavior, public interfaces, examples, or comments are likely affected; it is not a mandatory gate for every tiny change.
 
-### 4.25. Test-First Gate (Conditional)
+### 4a. Test-First Gate (Conditional)
 
-When TDD is requested or the change is medium/high risk with unclear regression surface:
+When TDD is requested, the change is medium/high risk, or validation scope is unclear:
 
-- define the intended behavior before implementation (`test_designer` or equivalent explicit test strategy),
-- prefer `tester` before `executor` to establish the baseline or failing case when practical, and
-- run `tester` again after implementation before review completion.
+- define the intended behavior before implementation using `test_designer`,
+- delegate test code writing to `executor` (mode: surgical, red phase) before implementation code,
+- run `tester` to confirm the new tests fail as expected (red phase confirmed),
+- delegate implementation code to `executor` (green phase), and
+- run `tester` again to confirm all tests pass (green phase confirmed) before review completion.
 
-### 4.5. Checkpoint Progress Gate (Nested Orchestration)
+`tester` result handling by phase:
+
+| Phase | Expected result | Unexpected result | Action on unexpected |
+|---|---|---|---|
+| Red phase | FAIL | PASS | halt → delegate to `debugger` → report in `.agents/reports/` → `NEEDS_INPUT` |
+| Green phase | PASS | FAIL | halt → delegate to `debugger` → report in `.agents/reports/` → `NEEDS_INPUT` |
+
+Auto-retry is not allowed for unexpected results in either phase. The next action (re-implementation, approach change, scope adjustment) is determined by the user after reviewing the `debugger` report.
+
+### 4b. Checkpoint Progress Gate (Nested Orchestration)
 
 When `spec` delegates to `orchestrator` (which then delegates to subagents):
 
@@ -152,6 +164,7 @@ When `spec` delegates to `orchestrator` (which then delegates to subagents):
 - `debugger` owns root-cause analysis after a concrete failure signal; it is not the default test runner.
 - `plan_reviewer` is a checklist-style gate reviewer, not a co-designer that invents a new plan by default.
 - `code_reviewer` is a scoped reviewer, not an explorer; it reviews the supplied review package and should not perform repository discovery on its own.
+- `deep_explore` handles cross-cutting investigation (dependency tracking, impact range, architecture patterns) for R2+ phases; do not use it for routine localized file lookup that belongs to `explore`.
 - Implementation is performed by implementation-capable subagents only.
 
 ## High-Risk / Sensitive Operations (R3)

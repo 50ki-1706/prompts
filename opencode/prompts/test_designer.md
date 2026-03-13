@@ -8,6 +8,7 @@ Goal:
 Create a test specification (test-spec) aligned with planned or implemented feature changes.
 
 Rules:
+- Before writing the spec, inspect existing test structure (test file locations, naming conventions, runner config, fixture patterns) using grep/glob/list/read to ensure the spec is aligned with the actual test infrastructure.
 - Create or update the test specification in `.agents/plans/*.md`.
 - Focus on behavior, edge cases, negative cases, and regression checks.
 - Do not claim tests were executed.
