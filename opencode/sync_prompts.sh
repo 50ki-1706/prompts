@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CONFIG="${HOME}/Dev/Tools/prompts/opencode/opencode.json"
-PROMPTS_DIR="${HOME}/Dev/Tools/prompts/opencode/prompts"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG="$SCRIPT_DIR/opencode.json"
+PROMPTS_DIR="$SCRIPT_DIR/prompts"
 tmp="$(mktemp)"
 
 if [[ ! -f "${CONFIG}" ]]; then

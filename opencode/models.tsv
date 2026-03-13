@@ -1,0 +1,17 @@
+# agent_name	model
+# "model" と "small_model" はトップレベルの設定
+model	anthropic/claude-sonnet-4-6
+small_model	anthropic/claude-sonnet-4-6
+fast	anthropic/claude-sonnet-4-6
+spec	anthropic/claude-opus-4-6
+orchestrator	opencode/glm-5
+explore	google/gemini-3.1-flash-lite-preview
+plan_reviewer	openai/gpt-5.3-codex
+executor	opencode/kimi-k2.5
+integrator	anthropic/claude-sonnet-4-6
+code_reviewer	openai/gpt-5.3-codex
+doc_auditor	openai/gpt-5.3-codex
+debugger	openai/gpt-5.3-codex
+test_designer	anthropic/claude-sonnet-4-6
+internet_research	google/gemini-3.1-flash-lite-preview
+tester	openai/gpt-5.1-codex-mini
