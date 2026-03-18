@@ -146,7 +146,7 @@ graph TD
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `anthropic/claude-opus-4-6`）
 - **explore (Subagent)**: 共通のコードベース調査（read-only）。`fast` / `spec` / `orchestrator` が必要なローカル事実確認を委譲する。（モデル: `google/gemini-3.1-flash-lite-preview`）
-- **deep_explore (Subagent)**: R2+ 設計・リスク評価フェーズ向けの横断的コードベース調査。依存関係追跡・影響範囲分析・アーキテクチャ把握を担当し、`spec` / `orchestrator` が R2+ 変更時に使用する。（モデル: `openai/gpt-5.3-codex`）
+- **deep_explore (Subagent)**: 大規模・横断的コードベース調査。調査対象が6ファイル以上、またはモジュール間の依存関係・アーキテクチャ理解が必要な場合に `fast` / `spec` / `orchestrator` が使用する。（モデル: `openai/gpt-5.3-codex`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3.1-flash-lite-preview`）
 - **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.3-codex`）
 - `plan_reviewer` は別案を作る役ではなく、計画の抜け漏れと実行可能性を採点するチェック役として扱う。
