@@ -118,60 +118,85 @@ graph TD
     InvestigateLoop -- 局所調査 --> Explore[read-only調査: explore]
     InvestigateLoop -- 広域調査 --> DeepExplore[広域調査: deep_explore]
     InvestigateLoop -- 外部知識 --> Research[外部調査: internet_research]
-    InvestigateLoop -- 十分 --> Plan[計画作成: spec]
+    InvestigateLoop -- 十分 --> SpecGate{Specification Gate\n意図・範囲・成功条件が確定?}
     Explore --> InvestigateLoop
     DeepExplore --> InvestigateLoop
     Research --> InvestigateLoop
+    SpecGate -- 未確定 --> Spec
 
-    Plan --> PlanReview[計画レビュー: plan_reviewer]
+    SpecGate -- 確定 --> DraftPlan[ドラフト計画（内部反復・ファイル出力なし）: spec]
+    DraftPlan --> PlanReview[計画レビュー: plan_reviewer]
     PlanReview --> PlanStatus{計画承認}
-    PlanStatus -- REJECTED --> Plan
-    PlanStatus -- APPROVED --> UserApproval{ユーザー確認}
-    UserApproval -- n --> Plan
-    UserApproval -- y --> Orchestrator[実行制御: orchestrator]
+    PlanStatus -- REJECTED --> DraftPlan
+    PlanStatus -- APPROVED --> FinalPlan[最終計画を.agents/plans/に作成: spec]
+    FinalPlan --> UserApproval{ユーザー確認 y/n}
+    UserApproval -- n --> DraftPlan
+    UserApproval -- y --> Relay[orchestrator呼び出し・チェックポイント中継: spec]
 
-    Orchestrator --> TestGate{テスト設計が必要?}
+    Relay --> Orchestrator[実行制御: orchestrator]
+    Orchestrator -- IN_PROGRESS --> Relay
+    Orchestrator -- "BLOCKED/NEEDS_INPUT" --> UserWait[ユーザーへ報告・停止: spec]
+    UserWait -- "ユーザー入力/計画補正後に再開" --> Relay
+    Orchestrator -- COMPLETED --> End([完了])
+
+    Orchestrator --> FactNeed{ローカル事実が不足?}
+    FactNeed -- yes --> ExploreImpl[局所調査: explore]
+    ExploreImpl --> Orchestrator
+    FactNeed -- no --> TestGate{テスト設計が必要?}
     TestGate -- yes --> TestDesigner[テスト仕様: test_designer]
     TestGate -- no --> Impl[実装: executor]
     TestDesigner --> TestPlanReview[テスト計画レビュー: plan_reviewer]
     TestPlanReview --> TestPlanStatus{テスト計画承認}
     TestPlanStatus -- REJECTED --> TestDesigner
     TestPlanStatus -- APPROVED --> TDDGate{TDDを実施するか?}
-    TDDGate -- yes --> RedExecutor[redテストコード]
     TDDGate -- no --> Impl
-    RedExecutor --> RedTester[red確認]
+
+    TDDGate -- yes --> RedExecutor[redテストコード: executor]
+    RedExecutor --> RedTester[red確認: tester]
     RedTester --> RedStatus{red結果}
-    RedStatus -- FAIL --> Impl
-    RedStatus -- PASSまたはBLOCKED --> Unexpected[想定外結果で停止]
-    Unexpected --> Debugger
+    RedStatus -- "FAIL (期待値)" --> GreenImpl[実装 green phase: executor]
+    RedStatus -- "PASS (想定外) → halt" --> DebuggerRed[原因分析: debugger]
+    RedStatus -- "BLOCKED → halt" --> DebuggerRed
+    DebuggerRed --> NeedsInputRed[NEEDS_INPUT → spec経由でユーザーへ]
+
+    GreenImpl --> IntegratorGateGreen{統合が必要?}
+    IntegratorGateGreen -- yes --> IntegratorGreen[統合: integrator]
+    IntegratorGateGreen -- no --> GreenTester[green確認: tester]
+    IntegratorGreen --> GreenTester
+    GreenTester --> GreenStatus{green結果}
+    GreenStatus -- "PASS (期待値)" --> CodeReview
+    GreenStatus -- "FAIL (想定外) → halt" --> DebuggerGreen[原因分析: debugger]
+    GreenStatus -- "BLOCKED → halt" --> DebuggerGreen
+    DebuggerGreen --> NeedsInputGreen[NEEDS_INPUT → spec経由でユーザーへ]
+
     Impl --> IntegratorGate{複数成果物の統合が必要?}
     IntegratorGate -- yes --> Integrator[統合: integrator]
-    IntegratorGate -- no --> Verify[検証: tester]
+    IntegratorGate -- no --> Verify[通常検証: tester]
     Integrator --> Verify
-
-    Verify --> TestStatus{検証結果}
-    TestStatus -- PASS --> CodeReview[コードレビュー: code_reviewer]
-    TestStatus -- FAILまたはBLOCKED --> Debugger[原因分析: debugger/explore]
+    Verify --> VerifyStatus{検証結果}
+    VerifyStatus -- PASS --> CodeReview[コードレビュー: code_reviewer]
+    VerifyStatus -- "FAIL/BLOCKED" --> Debugger[原因分析: debugger]
+    Debugger --> Orchestrator
 
     CodeReview --> ReviewStatus{レビュー結果}
     ReviewStatus -- APPROVED --> DocGate{docsまたはinterface変更あり?}
     ReviewStatus -- REJECTED --> Orchestrator
 
     DocGate -- yes --> DocAudit[ドキュメント監査: doc_auditor]
-    DocGate -- no --> End([完了])
+    DocGate -- no --> End
 
     DocAudit --> DocStatus{監査結果}
     DocStatus -- PASS --> End
-    DocStatus -- DRIFT_FOUNDまたはBLOCKED --> Orchestrator
-
-    Debugger --> Orchestrator
+    DocStatus -- "DRIFT_FOUNDまたはBLOCKED" --> Orchestrator
 ```
 
 補足:
-- `spec` はユーザー向けの窓口のままで、`y` 承認後は `orchestrator` のチェックポイントを中継しながら自動実行を継続します。
-- `deep_explore` は `spec` 段階専用で、実行フェーズの `orchestrator` からは呼びません。
-- `test_designer` が test-spec を作成した場合は、実装前に必ず独立した `plan_reviewer` のテスト計画レビューを通します。
-- TDD の想定外結果は自動リトライせず、`debugger` に委譲して `NEEDS_INPUT` を返します。
+- **Specification Gate**: 意図・範囲・成功条件が未確定のまま計画フェーズへ進まない。
+- **計画フェーズの順序**: ドラフト計画は内部反復（ファイル出力なし）。`plan_reviewer` が APPROVED を返すまで修正を繰り返し、承認後に最終計画を `.agents/plans/` に作成し、ユーザーに提示して `y/n` 確認を取る。
+- **spec はユーザー窓口のまま**: `y` 承認後も `spec` が `orchestrator` の `IN_PROGRESS` チェックポイントを都度中継する。`BLOCKED/NEEDS_INPUT` は terminal status として扱い、ユーザーへ報告して停止する。自動再開はせず、ユーザー入力または計画補正後にのみ再開する。
+- **orchestrator のローカル事実委譲**: 実行フェーズ中にローカル事実が不足した場合は `orchestrator` が `explore` へ委譲する。広域アーキテクチャ理解が不足している場合は `BLOCKED/NEEDS_INPUT` として `spec` に差し戻す（`deep_explore` は `spec` 段階専用）。
+- **TDD 異常系（halt）**: red phase で `tester` が PASS した場合（予期しない）または green phase で `tester` が FAIL した場合（予期しない）は、即時停止して `debugger` に委譲し `NEEDS_INPUT` を返す。自動リトライ不可。いずれかのフェーズで `tester` が BLOCKED を返した場合も同様に halt → `debugger` → `NEEDS_INPUT` とする（環境/ツール起因であっても TDD 中は自動リトライしない）。
+- **通常検証の FAIL**: TDD でない通常検証の `FAIL/BLOCKED` は `debugger` → `orchestrator` のリトライループへ入る（halt しない）。
 
 ## エージェント構成
 
@@ -215,7 +240,7 @@ graph TD
   - `fast` はリポジトリ調査（ファイル探索・コード読取・構造確認）を自前で行わず、`explore`（または再現調査が必要な場合は `debugger`）へ委譲する。
   - 広域な依存関係・アーキテクチャ・実装慣習の把握が必要になった場合、`fast` では抱え込まず `spec` に上げて `deep_explore` を使う。
   - `fast` では tiny な単一ファイル修正に対して reviewer/doc audit を常時積まず、変更リスク・公開面影響・ユーザー要求に応じて起動する。
-- **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
+- **strict-path**: large `R1`・`R2`・`R3`、要件不明確、または複数サブシステム影響・設計判断が必要な変更向け。small `R1` は `fast` に残せる。外部知識が必要なだけでは `strict-path` 強制にはならず、`fast` でも `internet_research` を使える。ドラフト計画（内部反復）→ `plan_reviewer` 承認 → 最終計画作成 → ユーザー承認 → 実装の順でゲートを厳格に踏む。
 - 計画主導経路（`fast-path` / `strict-path`）では、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
 
 ### 標準フロー（新構成 / `spec` 主導）
@@ -228,13 +253,13 @@ graph TD
 1. **初期調査（read-only）**: `spec` が `explore` を使って対象ファイルの事実を収集し、必要に応じて `deep_explore` で広域アーキテクチャや実装慣習を把握する（`spec` 自身はリポジトリ調査を直接行わない）。
 2. **仕様の明確化（Specification Gate）**: 目的、範囲、制約、成功条件を確定する。曖昧さが残る間は実装へ進まない。
 3. **外部知識の確認（Knowledge Gate / 条件付き）**: ローカル調査で不足する場合のみ `internet_research` を使う。
-4. **計画作成（spec）**: `spec` が `.agents/plans/` に計画成果物（draft/final plan、必要なら補足）を作成する。
-5. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
-6. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
+4. **計画作成と内部レビュー（spec → plan_reviewer）**: `spec` がドラフト計画を内部で作成し（ファイル出力なし）、`plan_reviewer` に渡す。`REJECTED` なら修正して再レビュー、`APPROVED` になるまで繰り返す。
+5. **最終計画の書き出し**: `plan_reviewer` が `APPROVED` を返したら、`spec` が最終計画を `.agents/plans/` に作成する（必要なら補足ノートも）。
+6. **ユーザー承認（User Approval Gate）**: 最終計画を提示し、`y/n` で明示的な承認を得るまで停止する。
 7. **自動移行とフェーズ制御（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でフェーズ順序・次に呼ぶサブエージェント・ゲート進行を決め、各チェックポイントを `spec` が中継する。
 8. **テスト仕様設計（条件付き / 先行）**: TDD、中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が先に test-spec を作成する。
 9. **テスト計画レビュー（独立ゲート / 条件付き）**: `test_designer` が test-spec を作成・更新した場合、`plan_reviewer` が独立したテスト計画レビューを行う。`REJECTED` の場合は `test_designer` に差し戻し、`APPROVED` になるまで実装へ進まない。
-10. **TDD 実行（条件付き）**: TDD の場合は、承認済み test-spec に基づいて `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順で進める。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも実行を停止し `debugger` に委譲してレポートを作成し `NEEDS_INPUT` を返す。自動リトライは行わない。
+10. **TDD 実行（条件付き）**: TDD の場合は、承認済み test-spec に基づいて `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順で進める。red phase で `tester` が PASS または BLOCKED を返した場合、あるいは green phase で `tester` が FAIL または BLOCKED を返した場合は、いずれもフェーズの成立条件（期待した結果の確認）が満たせていないとみなし、実行を停止して `debugger` に委譲しレポートを作成し `NEEDS_INPUT` を返す。自動リトライは行わない。
 11. **実装と統合**: 単一タスクの変更は `executor`、複数成果物の接着・競合解消は `integrator` が担当する。
 12. **検証と監査（最終ゲート）**: `tester` を実装前後または実装後に必要な順序で実行し、その後 `code_reviewer`、必要時のみ `doc_auditor` を逐次実行して完了とする。
 
@@ -247,7 +272,7 @@ graph TD
 - **Checkpoint Progress Gate**: `spec`→`orchestrator`→各サブエージェントのネスト時は、`orchestrator` が `IN_PROGRESS` で段階的に返却し、`spec` が都度中継すること。長時間の無言ネスト実行を避ける。
 - **Test Plan Review Gate（条件付き）**: `test_designer` が作成した test-spec は、実装前に `plan_reviewer` の独立レビューで `APPROVED` されていること。
 - **Sequential Verification Gate**: `tester` / `code_reviewer` / `doc_auditor` は同一依頼内で並列化せず、統合済みスコープを確定してから 1 ゲートずつ進めること。
-- **Test-First Gate（条件付き）**: TDD の場合は、`test_designer` と `plan_reviewer` で test-spec を固めてから `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順を優先すること。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも halt → `debugger` 委譲 → `.agents/reports/` にレポート → `NEEDS_INPUT` とする。自動リトライ不可。
+- **Test-First Gate（条件付き）**: TDD の場合は、`test_designer` と `plan_reviewer` で test-spec を固めてから `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順を優先すること。red phase で `tester` が PASS または BLOCKED を返した場合、あるいは green phase で `tester` が FAIL または BLOCKED を返した場合は、いずれもフェーズの成立条件を満たせていないとみなして halt → `debugger` 委譲 → `.agents/reports/` にレポート → `NEEDS_INPUT` とする。自動リトライ不可。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。`spec` / `fast` はリポジトリ調査を自前で行わず、`explore`（必要に応じて `debugger`）を使うこと。
 - **Exploration Ownership Gate**: 局所的なリポジトリ探索（grep/glob ベースの発見・横断読取）と対象ファイルの詳細実装確認は `explore` の役割とし、`orchestrator` と `code_reviewer` は必要な事実を委譲または受領して扱うこと。広域な依存追跡・影響範囲分析・アーキテクチャ把握・実装慣習の整理は `spec` 段階でのみ `deep_explore` に委譲すること。
@@ -277,9 +302,9 @@ graph TD
 ### ディレクトリ別ルール
 
 - `.agents/plans/`
-  - 形式: `.md` のみ。計画書、ドラフト、final plan、test-spec を Markdown で管理する。
-  - 作成: `spec` が計画ドラフト/最終計画を作る時、または `test_designer` が test-spec を作る時。
-  - 削除: 原則保持する。削除してよいのは、同一依頼内で新しい draft/final/test-spec に完全に置き換わり、かつレビューや実行が古い版を参照していない時、またはユーザーが明示的にクリーンアップを指示した時。
+  - 形式: `.md` のみ。最終計画（final plan）と test-spec を Markdown で管理する。ドラフトはファイルに書かず内部反復で完結させる。
+  - 作成: `spec` が `plan_reviewer` 承認後に最終計画を書く時、または `test_designer` が test-spec を作る時。
+  - 削除: 原則保持する。削除してよいのは、同一依頼内で新しい final plan/test-spec に完全に置き換わり、かつレビューや実行が古い版を参照していない時、またはユーザーが明示的にクリーンアップを指示した時。
 - `.agents/tasks/`
   - 形式: `.md` のみ。人間が読めるタスクマニフェストとして保持する。
   - 作成: `orchestrator` が承認済み計画を実行単位へ分解した時。

@@ -93,8 +93,8 @@ Note: External fact lookup via `internet_research` alone does not force `strict-
 
 Requirements:
 
-- Draft plan -> user approval -> final plan.
-- Reviewer approval for final plan / test-spec.
+- Draft plan (internal, no file output) -> reviewer approval (iterate until approved) -> final plan (written to `.agents/plans/`) -> user approval.
+- Reviewer approval for test-spec (independent gate after `test_designer`).
 - Full verification gates before completion.
 
 ## Workflow Gates (Do Not Skip)
@@ -149,8 +149,10 @@ When TDD is requested, the change is medium/high risk, or validation scope is un
 
 | Phase | Expected result | Unexpected result | Action on unexpected |
 |---|---|---|---|
-| Red phase | FAIL | PASS | halt → delegate to `debugger` → report in `.agents/reports/` → `NEEDS_INPUT` |
-| Green phase | PASS | FAIL | halt → delegate to `debugger` → report in `.agents/reports/` → `NEEDS_INPUT` |
+| Red phase | FAIL | PASS or BLOCKED | halt → delegate to `debugger` → report in `.agents/reports/` → `NEEDS_INPUT` |
+| Green phase | PASS | FAIL or BLOCKED | halt → delegate to `debugger` → report in `.agents/reports/` → `NEEDS_INPUT` |
+
+Note: BLOCKED means the phase's success condition (confirming the expected result) cannot be satisfied, so it is treated the same as an unexpected PASS/FAIL rather than a retriable transient error.
 
 Auto-retry is not allowed for unexpected results in either phase. The next action (re-implementation, approach change, scope adjustment) is determined by the user after reviewing the `debugger` report.
 

@@ -32,16 +32,14 @@ Workflow:
 4. Choose path:
    - `fast-path`: low-risk/small change with no external unknowns.
    - `strict-path`: higher-risk change, external dependencies, or unclear requirements.
-5. Create planning artifacts in `.agents/plans/`:
-   - Draft plan (for user review)
-   - Final plan (after approval)
-   - Optional risk note/test-scope note if needed
-6. Request `plan_reviewer` review for the final implementation plan and iterate until approved.
-7. Ask for explicit user approval using `y/n`:
+5. Draft the plan internally. Do not write it to a file yet.
+6. Request `plan_reviewer` review for the draft plan. Iterate (revise draft, re-review) until `plan_reviewer` returns `APPROVED`. Do not advance to the next step until approved.
+7. Write the approved plan as the final plan to `.agents/plans/` as a Markdown file. Optional: add a risk note or test-scope note alongside it if needed.
+8. Present the final plan to the user wrapped in `<proposed_plan>`. Ask for explicit user approval using `y/n`:
    - `y`: proceed to implementation automatically by delegating to `orchestrator`.
-   - `n`: do not implement; revise the plan based on user feedback.
-8. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs). Treat handoff-start and gate-queued transitions as real progress checkpoints. If execution enters a test-design branch, preserve the independent gate `test_designer` -> `plan_reviewer` -> `executor`.
-9. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese before any re-invocation, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`). Surface test-spec creation and test-plan review as separate checkpoints when they occur.
+   - `n`: do not implement; revise the draft plan based on user feedback and return to step 6.
+9. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs). Treat handoff-start and gate-queued transitions as real progress checkpoints. If execution enters a test-design branch, preserve the independent gate `test_designer` -> `plan_reviewer` -> `executor`.
+10. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese before any re-invocation, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`). Surface test-spec creation and test-plan review as separate checkpoints when they occur. On `BLOCKED` or `NEEDS_INPUT`, stop and report to the user; do not self-resume without user input or plan correction.
 10. Do not wait for a long multi-phase nested run to finish before sending progress to the user.
 
 Output Contract:
@@ -59,7 +57,7 @@ Rules:
 - Use `deep_explore` only during specification when planning requires broad codebase understanding or implementation-convention discovery; use `explore` for targeted file-level investigation.
 - Do not write outside `.agents/plans/*.md`.
 - Create planning artifacts only when they are actually needed; do not precreate empty placeholders.
-- Reuse or update the existing same-request draft/final plan when that preserves a single clear source of truth.
+- Reuse or update the existing same-request final plan when that preserves a single clear source of truth. Draft plans are internal and not persisted as files.
 - Do not delete planning artifacts by default. Remove or replace them only when they are clearly superseded, no active review/execution depends on them, or the user explicitly requests cleanup.
 - Do not proceed to implementation without explicit user approval.
 - Do not ask the user to switch to another agent manually.
