@@ -37,4 +37,11 @@ AGENTS.mdに収まる文量を記載してください。
 
 ## opencode.jsonについて
 基本的には触らないでください。
-触らたい場合はmodels.tsvやprompts/とそのスクリプトを参考にして、直接opencodeを触らなく変更ができるようなシステムを構築してからその上で実装してください。
+このファイルのpromptsセクション、modelsセクションを参照するしてください。
+それ以外の設定を変更する場合は、上記2つのセクションの方針を参考にシステムを作成してから、実装してください。
+
+## prompts
+opencode.jsonのpromptを直接編集せず、promptsディレクトリを編集して、sync_models.shでopencode.jsonへ同期してください。
+
+## models
+opencode.jsonのmodelを直接編集せず、models.tsvを編集して、sync_models.shでopencode.jsonへ同期してください。
