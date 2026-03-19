@@ -92,49 +92,134 @@ echo "Synced all prompts from ${PROMPTS_DIR} into ${CONFIG}"
 ### 使い方
 `opencode` を起動するだけで MCP サーバーが自動的に立ち上がります。AIエージェントに対して「Chromeブラウザで〇〇を確認して」と指示を出すことで、バックグラウンド連携された DevTools プロトコル経由で検証が実行されます。
 
-## エージェント間連携図
+## エージェント別フロー図
+
+`fast` と `spec` では入口もゲートも異なるため、概要図ではなく実行順が分かる形で分けて掲載します。
+
+### Fast フロー
 
 ```mermaid
 graph TD
-    User((User)) --> fast[fast/Primary]
-    User((User)) --> spec[spec/Primary]
+    Start([依頼開始]) --> Fast[高速処理: fast]
+    Fast --> Classify{依頼分類}
 
-    explore[explore/Subagent]
-    deep_explore[deep_explore/Subagent]
+    Classify -- research --> ResearchScope{広域理解が必要?}
+    ResearchScope -- yes --> EscalateR[specへエスカレーション]
+    ResearchScope -- no --> ExploreR[read-only調査: explore]
+    ExploreR --> DebugNeedR{再現 / 根因分析が必要?}
+    DebugNeedR -- yes --> DebuggerR[原因分析: debugger]
+    DebugNeedR -- no --> Answer([回答])
+    DebuggerR --> Answer
 
-    subgraph Fast Primary Lane
-        fast --> explore
-        fast -. "必要時" .-> debugger_fast[debugger]
-        fast --> exec_fast[executor]
-        fast -. "必要時" .-> tester_fast[tester]
-        fast -. "条件付き" .-> review_fast[code_reviewer]
-        fast -. "条件付き" .-> doc_aud_fast[doc_auditor]
-    end
+    Classify -- implementation --> ImplScope{fastで安全に扱える?}
+    ImplScope -- no --> EscalateI[specへエスカレーション]
+    ImplScope -- yes --> FactNeedI{局所調査が必要?}
+    FactNeedI -- yes --> ExploreI[read-only調査: explore]
+    FactNeedI -- no --> DebugNeedI{再現 / 根因分析が必要?}
+    ExploreI --> DebugNeedI
+    DebugNeedI -- yes --> DebuggerI[原因分析: debugger]
+    DebugNeedI -- no --> TestDesignNeed{TDD / 中高リスク / validation scope不明?}
+    DebuggerI --> TestDesignNeed
+    TestDesignNeed -- yes --> TestDesigner[test_designer]
+    TestDesignNeed -- no --> ExecutorI[実装: executor]
+    TestDesigner --> TestPlanReviewI[テスト計画レビュー: plan_reviewer]
+    TestPlanReviewI --> TestPlanStatusI{テスト計画承認}
+    TestPlanStatusI -- REJECTED --> TestDesigner
+    TestPlanStatusI -- APPROVED --> TDDGateI{TDDを実施するか?}
+    TDDGateI -- yes --> ExecutorI
+    TDDGateI -- no --> ExecutorI
+    ExecutorI --> TestNeed{testerが必要?}
+    TestNeed -- yes --> TesterI[検証: tester]
+    TestNeed -- no --> ReviewNeed{code reviewが必要?}
+    TesterI --> ReviewNeed
+    ReviewNeed -- yes --> CodeReviewI[コードレビュー: code_reviewer]
+    ReviewNeed -- no --> DocNeed{doc監査が必要?}
+    CodeReviewI --> DocNeed
+    DocNeed -- yes --> DocAuditorI[ドキュメント監査: doc_auditor]
+    DocNeed -- no --> DoneI([完了])
+    DocAuditorI --> DoneI
 
-    subgraph Planning Phase
-        spec --> explore
-        spec -. "広域アーキテクチャ/実装慣習の把握時" .-> deep_explore
-        spec --> research[internet_research]
-        spec --> plan_rev[plan_reviewer]
-    end
-
-    spec -- "y承認後に自動委譲" --> orch[orchestrator/Subagent]
-
-    orch -. "必要時" .-> explore
-
-    subgraph Test Strategy & Implementation Phase
-        orch -. "TDD・中/高リスク・validation scope不明時" .-> test_des[test_designer]
-        orch --> exec[executor]
-        orch -. "複数成果物時" .-> integ[integrator]
-        orch -. "原因分析時" .-> debugger[debugger]
-    end
-
-    subgraph Verification Phase
-        orch --> tester[tester]
-        orch --> code_rev[code_reviewer]
-        orch -. "docs/interface変更時" .-> doc_aud[doc_auditor]
-    end
+    Classify -- documentation --> DocScope{広域理解が必要?}
+    DocScope -- yes --> EscalateD[specへエスカレーション]
+    DocScope -- no --> FactNeedD{ローカル事実確認が必要?}
+    FactNeedD -- yes --> ExploreD[read-only調査: explore]
+    FactNeedD -- no --> ExecutorD[文書更新: executor]
+    ExploreD --> ExecutorD
+    ExecutorD --> ExampleNeed{実行例の検証が必要?}
+    ExampleNeed -- yes --> TesterD[検証: tester]
+    ExampleNeed -- no --> AuditNeed{整合性監査が必要?}
+    TesterD --> AuditNeed
+    AuditNeed -- yes --> DocAuditorD[ドキュメント監査: doc_auditor]
+    AuditNeed -- no --> DoneD([完了])
+    DocAuditorD --> DoneD
 ```
+
+### Spec フロー
+
+```mermaid
+graph TD
+    Start([開発開始]) --> Spec[仕様定義・計画: spec]
+
+    Spec --> ExploreNeed{局所調査が必要?}
+    ExploreNeed -- yes --> Explore[read-only調査: explore]
+    ExploreNeed -- no --> DeepNeed{広域理解が必要?}
+    Explore --> DeepNeed
+    DeepNeed -- yes --> DeepExplore[広域調査: deep_explore]
+    DeepNeed -- no --> ResearchNeed{外部知識が必要?}
+    DeepExplore --> ResearchNeed
+    ResearchNeed -- yes --> Research[外部調査: internet_research]
+    ResearchNeed -- no --> Plan[計画作成: spec]
+    Research --> Plan
+
+    Plan --> PlanReview[計画レビュー: plan_reviewer]
+    PlanReview --> PlanStatus{計画承認}
+    PlanStatus -- REJECTED --> Plan
+    PlanStatus -- APPROVED --> UserApproval{ユーザー確認}
+    UserApproval -- n --> Plan
+    UserApproval -- y --> Orchestrator[実行制御: orchestrator]
+
+    Orchestrator --> TestGate{テスト設計が必要?}
+    TestGate -- yes --> TestDesigner[テスト仕様: test_designer]
+    TestGate -- no --> Impl[実装: executor]
+    TestDesigner --> TestPlanReview[テスト計画レビュー: plan_reviewer]
+    TestPlanReview --> TestPlanStatus{テスト計画承認}
+    TestPlanStatus -- REJECTED --> TestDesigner
+    TestPlanStatus -- APPROVED --> TDDGate{TDDを実施するか?}
+    TDDGate -- yes --> RedExecutor[redテストコード]
+    TDDGate -- no --> Impl
+    RedExecutor --> RedTester[red確認]
+    RedTester --> RedStatus{red結果}
+    RedStatus -- FAIL --> Impl
+    RedStatus -- PASSまたはBLOCKED --> Unexpected[想定外結果で停止]
+    Unexpected --> Debugger
+    Impl --> IntegratorGate{複数成果物の統合が必要?}
+    IntegratorGate -- yes --> Integrator[統合: integrator]
+    IntegratorGate -- no --> Verify[検証: tester]
+    Integrator --> Verify
+
+    Verify --> TestStatus{検証結果}
+    TestStatus -- PASS --> CodeReview[コードレビュー: code_reviewer]
+    TestStatus -- FAILまたはBLOCKED --> Debugger[原因分析: debugger]
+
+    CodeReview --> ReviewStatus{レビュー結果}
+    ReviewStatus -- APPROVED --> DocGate{docsまたはinterface変更あり?}
+    ReviewStatus -- REJECTED --> Orchestrator
+
+    DocGate -- yes --> DocAudit[ドキュメント監査: doc_auditor]
+    DocGate -- no --> End([完了])
+
+    DocAudit --> DocStatus{監査結果}
+    DocStatus -- PASS --> End
+    DocStatus -- DRIFT_FOUNDまたはBLOCKED --> Orchestrator
+
+    Debugger --> Orchestrator
+```
+
+補足:
+- `spec` はユーザー向けの窓口のままで、`y` 承認後は `orchestrator` のチェックポイントを中継しながら自動実行を継続します。
+- `deep_explore` は `spec` 段階専用で、実行フェーズの `orchestrator` からは呼びません。
+- `test_designer` が test-spec を作成した場合は、実装前に必ず独立した `plan_reviewer` のテスト計画レビューを通します。
+- TDD の想定外結果は自動リトライせず、`debugger` に委譲して `NEEDS_INPUT` を返します。
 
 ## エージェント構成
 
@@ -147,8 +232,8 @@ graph TD
 - **explore (Subagent)**: 共通のコードベース調査（read-only）。`fast` / `spec` / `orchestrator` が、対象ファイルの実装詳細・制御フロー・インターフェース・局所的な実装慣習を確認するために使う。（モデル: `google/gemini-3.1-flash-lite-preview`）
 - **deep_explore (Subagent)**: `spec` 段階専用の大規模・横断的コードベース調査。膨大なコードベースから依存関係、アーキテクチャ、実装慣習を把握し、計画に必要な前提を固めるために使う。（モデル: `openai/gpt-5.3-codex`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3.1-flash-lite-preview`）
-- **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.3-codex`）
-- `plan_reviewer` は別案を作る役ではなく、計画の抜け漏れと実行可能性を採点するチェック役として扱う。
+- **plan_reviewer (Subagent)**: 計画書と test-spec の厳格レビュー。仕様・計画レビューとテスト計画レビューの両方で `STATUS: APPROVED | REJECTED` を返す独立ゲート判定役。（モデル: `openai/gpt-5.3-codex`）
+- `plan_reviewer` は別案を作る役ではなく、計画の抜け漏れ、実行可能性、テスト設計の妥当性を採点するチェック役として扱う。
 
 ### 3. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
 - **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、フェーズ順序と次に呼ぶサブエージェントを決める。プロダクトコードは編集しない。（モデル: `opencode/glm-5`）
@@ -156,7 +241,7 @@ graph TD
 - **executor (Subagent)**: 単一タスクの実装担当。`mode: surgical`（局所修正）と `mode: investigative`（必要最小限の調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
 - **integrator (Subagent)**: 複数成果物の統合作業。変更の接着、競合解消、型/インターフェース整合を担当する。（モデル: `anthropic/claude-sonnet-4-6`）
 - **debugger (Subagent)**: 原因分析専任。失敗シグナルや再現結果を受けて根本原因分析を行い、証拠ベースのレポートを作成する。（モデル: `openai/gpt-5.3-codex`）
-- **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更、TDD、またはテスト方針が曖昧な場合に先に test-spec を作成する。（モデル: `anthropic/claude-sonnet-4-6`）
+- **test_designer (Subagent)**: テスト仕様設計。中〜高リスク変更、TDD、またはテスト方針が曖昧な場合に先に review-ready な test-spec を作成し、その後 `plan_reviewer` の独立レビューに渡す。（モデル: `anthropic/claude-sonnet-4-6`）
 
 ### 4. 検証と監査フェーズ
 - **tester (Subagent)**: テスト実行と結果報告。テスト実行、失敗再現、回帰確認を担当し、`STATUS: PASS | FAIL | BLOCKED` で返す。（モデル: `openai/gpt-5.1-codex-mini`）
@@ -193,9 +278,11 @@ graph TD
 5. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
 6. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
 7. **自動移行とフェーズ制御（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でフェーズ順序・次に呼ぶサブエージェント・ゲート進行を決め、各チェックポイントを `spec` が中継する。
-8. **テスト仕様設計（条件付き / 先行）**: TDD、中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が先に test-spec を作成する。TDD の場合は続けて `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順で進める。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも実行を停止し `debugger` に委譲してレポートを作成し `NEEDS_INPUT` を返す。自動リトライは行わない。
-9. **実装と統合**: 単一タスクの変更は `executor`、複数成果物の接着・競合解消は `integrator` が担当する。
-10. **検証と監査（最終ゲート）**: `tester` を実装前後または実装後に必要な順序で実行し、その後 `code_reviewer`、必要時のみ `doc_auditor` を逐次実行して完了とする。
+8. **テスト仕様設計（条件付き / 先行）**: TDD、中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が先に test-spec を作成する。
+9. **テスト計画レビュー（独立ゲート / 条件付き）**: `test_designer` が test-spec を作成・更新した場合、`plan_reviewer` が独立したテスト計画レビューを行う。`REJECTED` の場合は `test_designer` に差し戻し、`APPROVED` になるまで実装へ進まない。
+10. **TDD 実行（条件付き）**: TDD の場合は、承認済み test-spec に基づいて `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順で進める。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも実行を停止し `debugger` に委譲してレポートを作成し `NEEDS_INPUT` を返す。自動リトライは行わない。
+11. **実装と統合**: 単一タスクの変更は `executor`、複数成果物の接着・競合解消は `integrator` が担当する。
+12. **検証と監査（最終ゲート）**: `tester` を実装前後または実装後に必要な順序で実行し、その後 `code_reviewer`、必要時のみ `doc_auditor` を逐次実行して完了とする。
 
 ### 主要な関所（Gate）
 
@@ -204,18 +291,19 @@ graph TD
 - **User Approval Gate**: `spec` 主導では実装前にユーザーの明示承認があること（`fast` は R0/小さなR1で依頼自体を承認として扱える）。
 - **Auto Handoff Rule**: `y` 承認後は `spec` が `orchestrator` に自動委譲し、ユーザーに手動切り替えを要求しないこと。
 - **Checkpoint Progress Gate**: `spec`→`orchestrator`→各サブエージェントのネスト時は、`orchestrator` が `IN_PROGRESS` で段階的に返却し、`spec` が都度中継すること。長時間の無言ネスト実行を避ける。
+- **Test Plan Review Gate（条件付き）**: `test_designer` が作成した test-spec は、実装前に `plan_reviewer` の独立レビューで `APPROVED` されていること。
 - **Sequential Verification Gate**: `tester` / `code_reviewer` / `doc_auditor` は同一依頼内で並列化せず、統合済みスコープを確定してから 1 ゲートずつ進めること。
-- **Test-First Gate（条件付き）**: TDD、中〜高リスク変更、または validation scope が不明な場合に、`test_designer` で期待挙動を固めてから `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順を優先すること。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも halt → `debugger` 委譲 → `.agents/reports/` にレポート → `NEEDS_INPUT` とする。自動リトライ不可。
+- **Test-First Gate（条件付き）**: TDD の場合は、`test_designer` と `plan_reviewer` で test-spec を固めてから `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順を優先すること。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも halt → `debugger` 委譲 → `.agents/reports/` にレポート → `NEEDS_INPUT` とする。自動リトライ不可。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。`spec` / `fast` はリポジトリ調査を自前で行わず、`explore`（必要に応じて `debugger`）を使うこと。
 - **Exploration Ownership Gate**: 局所的なリポジトリ探索（grep/glob ベースの発見・横断読取）と対象ファイルの詳細実装確認は `explore` の役割とし、`orchestrator` と `code_reviewer` は必要な事実を委譲または受領して扱うこと。広域な依存追跡・影響範囲分析・アーキテクチャ把握・実装慣習の整理は `spec` 段階でのみ `deep_explore` に委譲すること。
-- **Boundary Gate**: `executor` は単一タスク実装、`integrator` は複数成果物の接着、`tester` は検証、`debugger` は原因分析、`plan_reviewer` は計画採点に責務を限定すること。
+- **Boundary Gate**: `executor` は単一タスク実装、`integrator` は複数成果物の接着、`tester` は検証、`debugger` は原因分析、`plan_reviewer` は実装計画と test-spec のゲート判定に責務を限定すること。
 
 ## 出力契約（Gate判定用）
 
 レビュー/検証系エージェントは、機械判定しやすい `STATUS` を必ず含めます。
 
-- `plan_reviewer`: `STATUS: APPROVED | REJECTED`
+- `plan_reviewer`: `REVIEW_KIND: IMPLEMENTATION_PLAN | TEST_SPEC`, `STATUS: APPROVED | REJECTED`
 - `code_reviewer`: `STATUS: APPROVED | REJECTED`
 - `tester`: `STATUS: PASS | FAIL | BLOCKED`
 - `doc_auditor`: `STATUS: PASS | DRIFT_FOUND | BLOCKED`

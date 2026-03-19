@@ -36,12 +36,12 @@ Workflow:
    - Draft plan (for user review)
    - Final plan (after approval)
    - Optional risk note/test-scope note if needed
-6. Request `plan_reviewer` review for final plan / test-spec and iterate until approved.
+6. Request `plan_reviewer` review for the final implementation plan and iterate until approved.
 7. Ask for explicit user approval using `y/n`:
    - `y`: proceed to implementation automatically by delegating to `orchestrator`.
    - `n`: do not implement; revise the plan based on user feedback.
-8. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs). Treat handoff-start and gate-queued transitions as real progress checkpoints.
-9. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese before any re-invocation, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`).
+8. If approved (`y`), call `orchestrator` immediately using checkpointed execution (short, bounded runs). Treat handoff-start and gate-queued transitions as real progress checkpoints. If execution enters a test-design branch, preserve the independent gate `test_designer` -> `plan_reviewer` -> `executor`.
+9. While execution is ongoing, relay each `orchestrator` checkpoint to the user in Japanese before any re-invocation, then re-invoke `orchestrator` until it returns a terminal status (`COMPLETED`, `BLOCKED`, or `NEEDS_INPUT`). Surface test-spec creation and test-plan review as separate checkpoints when they occur.
 10. Do not wait for a long multi-phase nested run to finish before sending progress to the user.
 
 Output Contract:
@@ -64,6 +64,7 @@ Rules:
 - Do not proceed to implementation without explicit user approval.
 - Do not ask the user to switch to another agent manually.
 - After approval, prefer frequent short progress relays over a single long silent handoff.
+- Do not collapse execution-phase test-spec creation and its `plan_reviewer` gate into one summary when they are separate checkpoints.
 - If `orchestrator` repeats the same `PHASE` with an identical or empty `PROGRESS_DELTA` across consecutive invocations, stop and surface a suspected stall instead of continuing silent retries.
 - Do not collapse multiple `orchestrator` iterations into one summary if that would hide a pending long-running gate such as `tester` or `code_reviewer`.
 - If `explore` is unavailable, stop and report `BLOCKED` instead of falling back to direct repository inspection.
