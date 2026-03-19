@@ -64,22 +64,30 @@ graph TD
 
     Classify -- implementation --> ImplScope{小規模fix/feature/refactorか?}
     ImplScope -- no --> EscalateI[specへエスカレーション]
-    ImplScope -- yes --> FactNeedI{局所調査が必要?}
+    ImplScope -- yes --> TDDOrHighRisk{TDD指定 / テスト設計要求 / 中〜高リスク検証計画?}
+    TDDOrHighRisk -- yes --> EscalateI
+    TDDOrHighRisk -- no --> FactNeedI{局所調査が必要?}
     FactNeedI -- yes --> ExploreI[read-only調査: explore]
     FactNeedI -- no --> DebugNeedI{再現 / 根因分析が必要?}
-    ExploreI --> DebugNeedI
+    ExploreI --> ArchNeedI{広域アーキテクチャ理解 / リポジトリ全体規約が必要?}
+    ArchNeedI -- yes --> EscalateI
+    ArchNeedI -- no --> DebugNeedI
     DebugNeedI -- yes --> DebuggerI[原因分析: debugger]
     DebugNeedI -- no --> ExecutorI[実装: executor]
     DebuggerI --> ExecutorI
-    ExecutorI --> TesterI[ビルド&検証: tester]
+    ExecutorI --> IntegrateNeed{複数の委譲実装をマージ/統合が必要?}
+    IntegrateNeed -- yes --> IntegratorI[マージ/統合: integrator]
+    IntegrateNeed -- no --> TesterI[ビルド&検証: tester]
+    IntegratorI --> TesterI
     TesterI --> TestStatus{検証結果}
-    TestStatus -- PASS --> ReviewNeed{中〜高リスク / 複数ファイル / 公開IF変更?}
-    TestStatus -- FAIL|BLOCKED --> DebugNeedI
+    TestStatus -- PASS --> ReviewNeed{中〜高リスク / 複数ファイル / 公開IF / 状態・並行処理 / ユーザー要求?}
+    TestStatus -- FAIL|BLOCKED --> DebuggerFail[原因分析: debugger]
+    DebuggerFail --> ExecutorI
     ReviewNeed -- yes --> CodeReviewI[コードレビュー: code_reviewer]
     ReviewNeed -- no --> DocNeedI{文書化済み挙動 / 例 / IFの変更あり?}
     CodeReviewI --> ReviewStatus{レビュー結果}
     ReviewStatus -- APPROVED --> DocNeedI
-    ReviewStatus -- REJECTED --> DebugNeedI
+    ReviewStatus -- REJECTED --> ExecutorI
     DocNeedI -- yes --> DocAuditorI[ドキュメント乖離調査: doc_auditor]
     DocAuditorI --> DocStatusI{監査結果}
     DocStatusI -- PASS --> DoneI([完了])

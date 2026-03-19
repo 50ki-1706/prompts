@@ -17,7 +17,7 @@ Agent-specific behavior must be implemented in each agent prompt and enforced by
 - State facts based on direct evidence (repository inspection, command results, or cited sources).
 - Do not present assumptions as facts.
 - If information is missing, explicitly mark it as unknown and request clarification or research.
-- `spec` / `fast` must obtain local repository facts via delegated read-only subagents (`explore` for ≤5-file targeted lookup, `deep_explore` for >5-file or cross-module investigation, and `debugger` when reproduction evidence is needed), not by direct self-inspection.
+- `spec` / `fast` must obtain local repository facts via delegated read-only subagents (`explore` for targeted file-level lookup, `debugger` when reproduction evidence is needed), not by direct self-inspection. `deep_explore` is `spec`-stage only; `fast` must not call it and must escalate to `spec` when broad codebase understanding is required.
 
 ### User Intent Priority
 
@@ -60,20 +60,36 @@ Use `fast` for direct handling of one-off developer tasks when full specificatio
 
 Requirements:
 
-- Classify the request (`research` / `implementation` / `documentation`) before delegation. When `implementation`, also set `INTENT: fix | feature | refactor`.
+- Classify the request (`research` / `implementation` / `documentation`) before delegation. When `implementation`, also set `INTENT: fix | feature | refactor` and `NEEDS_DEBUGGER: yes | no`.
 - Use the minimum necessary subagents (`explore`, `debugger`, `executor`, etc.).
-- For repository code changes in `bug_fix` / `coding`, `fast` must delegate implementation to an implementation-capable subagent (normally `executor`) and must not self-implement.
+- `fast` must delegate implementation to an implementation-capable subagent (normally `executor`) and must not self-implement. Repository inspection is delegated to `explore` (or `debugger` for reproduction evidence); `fast` must not self-inspect repository files.
+- `fast` must not call `deep_explore`. If the task requires broad architecture understanding or repository-wide convention discovery, escalate to `spec` (`STATUS: ESCALATE_TO_SPEC`).
+- If the task requires TDD, test design (`test_designer`), or medium/high-risk validation planning, escalate to `spec` (`STATUS: ESCALATE_TO_SPEC`).
 - Keep scope tight; if the task becomes design-heavy or `R2+`, recommend `spec`.
-- For `fast` `implementation` tasks, always run `tester` after implementation. Run `code_reviewer` and `doc_auditor` only when the change risk, surface area, or user request justifies them.
 
-### Strict Path (Required for R1+ or uncertainty)
+Implementation gate flow (`fast`):
+
+- After `executor` completes, use `integrator` only if multiple delegated implementations need merge/cleanup.
+- Always run `tester` after implementation. On `FAIL` or `BLOCKED`, delegate to `debugger` for root-cause analysis, then back to `executor` for rework.
+- Run `code_reviewer` only when justified by risk, surface area, or user request. On `REJECTED`, delegate back to `executor` for re-implementation (not to `debugger`).
+- Run `doc_auditor` only when the change affects documented behavior, examples, comments, or interfaces. On `DRIFT_FOUND` or `BLOCKED`, delegate back to `executor` to resolve the drift.
+
+Documentation route (`fast`):
+
+- Use `explore` for repository fact gathering so documentation matches the current implementation.
+- If documentation work requires broad architecture understanding, escalate to `spec`.
+- Delegate documentation creation/updates to `executor`.
+- Use `doc_auditor` when factual consistency against implementation should be checked. On `DRIFT_FOUND` or `BLOCKED`, delegate back to `executor`.
+
+### Strict Path (Required for large R1+ or uncertainty)
 
 Use `strict-path` when any of the following applies:
 
 - Scope/requirements are unclear.
-- Risk class is `R1` or higher.
-- External facts/dependencies must be verified.
+- Risk class is large `R1`, `R2`, or `R3` (small `R1` may remain in `fast`).
 - The change affects multiple subsystems or operational behavior.
+
+Note: External fact lookup via `internet_research` alone does not force `strict-path`. `fast` may use `internet_research` within its own flow when local inspection is insufficient. `strict-path` applies when the overall scope, risk, or design complexity exceeds fast-lane capacity.
 
 Requirements:
 
@@ -96,7 +112,7 @@ Do not hand off to implementation until:
 Use `internet_research` only when local inspection is insufficient and external facts are necessary.
 Do not force online research for purely local code changes.
 For primary agents (`spec`, `fast`), local inspection should normally be delegated to `explore` rather than performed directly.
-Use `explore` for targeted lookup of specific files and their implementation details. Use `deep_explore` for broad investigation requiring architecture understanding, dependency tracking, cross-module impact analysis, or repository-wide convention discovery — this is `spec`-stage and `orchestrator`-only; `fast` must not call `deep_explore` and must escalate to `spec` (`STATUS: ESCALATE_TO_SPEC`) when broad codebase understanding is required.
+Use `explore` for targeted lookup of specific files and their implementation details. Use `deep_explore` for broad investigation requiring architecture understanding, dependency tracking, cross-module impact analysis, or repository-wide convention discovery — this is `spec`-stage only; `fast` and `orchestrator` must not call `deep_explore`. `fast` must escalate to `spec` (`STATUS: ESCALATE_TO_SPEC`) when broad codebase understanding is required. `orchestrator` must return `BLOCKED` / `NEEDS_INPUT` so `spec` can refine the plan.
 
 ### 3. User Approval Gate
 
@@ -156,7 +172,7 @@ When `spec` delegates to `orchestrator` (which then delegates to subagents):
 - `fast` must use delegated subagents (`explore` / `debugger` / `executor`) for repository inspection and not self-inspect repository files. `fast` must not call `deep_explore`; if broad codebase understanding is needed, escalate to `spec`.
 - `fast` must not directly implement repository code changes or present an unapplied patch as if the change were executed; implementation is delegated.
 - `orchestrator` is a subagent that manages execution and gates; it must not edit product/source code.
-- `orchestrator` must not perform direct repository search/discovery of product code; when local facts are missing it delegates to `explore` (targeted lookup) or `deep_explore` (broad architecture/cross-module understanding).
+- `orchestrator` must not perform direct repository search/discovery of product code; when local facts are missing it delegates to `explore` (targeted lookup). `orchestrator` must not call `deep_explore`; if broad architecture understanding is missing during execution, it returns `BLOCKED` / `NEEDS_INPUT` so `spec` can refine the plan.
 - `orchestrator` is a phase controller; it should decide sequencing and gate progression, not absorb task-level implementation or integration work.
 - `executor` owns the delegated implementation task; it should not take on broad cross-task cleanup unless explicitly delegated.
 - `integrator` owns multi-output merge/consistency work; it should not re-implement large features that belong to `executor`.
@@ -201,7 +217,7 @@ Agents must stop and request approval before:
 
 Reviewer and verification agents must include explicit `STATUS` fields.
 
-- `plan_reviewer`: `STATUS: APPROVED | REJECTED`
+- `plan_reviewer`: `REVIEW_KIND: IMPLEMENTATION_PLAN | TEST_SPEC`, `STATUS: APPROVED | REJECTED`
 - `code_reviewer`: `STATUS: APPROVED | REJECTED`
 - `tester`: `STATUS: PASS | FAIL | BLOCKED`
 - `doc_auditor`: `STATUS: PASS | DRIFT_FOUND | BLOCKED`

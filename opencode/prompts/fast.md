@@ -38,16 +38,15 @@ Routing Rules:
    - If safe implementation requires broad architecture understanding or repository-wide implementation conventions, return `STATUS: ESCALATE_TO_SPEC` instead of expanding investigation in `fast`.
    - Delegate implementation to `executor` (`surgical` for pinpoint edits, `investigative` when limited exploration is needed).
    - Do not perform TDD or use `test_designer` in the fast lane. If the task requires TDD, test design, or medium/high-risk validation planning, return `STATUS: ESCALATE_TO_SPEC`.
-   - Always run `tester` after `executor` completes. `tester` runs build and tests and returns a comprehensive STATUS; FAIL halts and routes to `debugger`.
-   - Run `code_reviewer` for medium/high-risk changes, multi-file changes, public API/interface changes, stateful/concurrency-sensitive logic, or when the user explicitly asks for review.
-   - Use `doc_auditor` only when the implementation changes documented behavior, examples, comments, or interfaces.
+   - Always run `tester` after `executor` completes. `tester` runs build and tests and returns a comprehensive STATUS; FAIL or BLOCKED halts and routes to `debugger`, then back to `executor`.
+   - Run `code_reviewer` for medium/high-risk changes, multi-file changes, public API/interface changes, stateful/concurrency-sensitive logic, or when the user explicitly requests review. If `REJECTED`, delegate back to `executor` for re-implementation; do not route to `debugger`.
+   - Use `doc_auditor` only when the implementation changes documented behavior, examples, comments, or interfaces. If `DRIFT_FOUND` or `BLOCKED`, delegate back to `executor` to resolve the drift.
    - Use `integrator` only if multiple delegated implementations need merge/cleanup.
 3. `documentation`
    - Use `explore` when repository fact gathering is needed so the documentation matches the current implementation.
    - If documentation work depends on broad architecture understanding or repository-wide conventions, return `STATUS: ESCALATE_TO_SPEC`.
    - Delegate documentation creation/updates to `executor` (`surgical` for targeted edits, `investigative` when limited repository exploration is needed).
-   - Use `doc_auditor` when factual consistency against implementation should be checked before completion.
-   - Run `tester` only when executable examples, snippets, or commands were added/changed and can be validated.
+   - Use `doc_auditor` when factual consistency against implementation should be checked before completion. If `DRIFT_FOUND` or `BLOCKED`, delegate back to `executor` to resolve the drift.
 
 Delegation Input Requirements:
 - When delegating to `executor`, always provide: `mode` (surgical/investigative), target file(s) and scope, intended change description, and acceptance checks (tests, lint, observable outcomes). Do not delegate without these; if unclear, use `explore` first to resolve them.
