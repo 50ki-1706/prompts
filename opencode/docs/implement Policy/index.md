@@ -19,7 +19,7 @@
 これは使用するユーザーがエージェントをより良くするために修正する際の参考になる。
 したがって、このファイルでは、各内容を**リアルタイムに**,そして**正確に**実装にする必要がある。
 ### 実装方針
-AGENTS.md,prompts.md,models.tsvを変更したら**必ず**このファイルも変更してください。
+opencode/の内容を変更したらnoしたら**必ず**このファイルも変更してください。
 セットアップや概要は、README.mdに入れ、別のファイルへ分割しないでください。
 それ以外はファイルが冗長でユーザーが見にくくなってきたと感じたら、docs/READMEディレクトリ内に各説明を分割し、README.mdはエントリポイントにしてください。
 
@@ -36,12 +36,25 @@ AGENTS.mdに収まる文量を記載してください。
 300行を超えてくるような場合は、この項目はすべてのエージェントが理解するべき知識なのかをよく考え、そうでなかった場合は代替案で実装を行なってください。
 
 ## opencode.jsonについて
-基本的には触らないでください。
-このファイルのpromptsセクション、modelsセクションを参照するしてください。
-それ以外の設定を変更する場合は、上記2つのセクションの方針を参考にシステムを作成してから、実装してください。
+このファイルを**手動で直接編集しないでください**。
+- 各エージェントの `agent.<name>.prompt` フィールドは `sync_prompts.sh` が source of truth（`prompts/` ディレクトリ）から生成・上書きします。
+- トップレベルの `model` / `small_model` キーおよび各エージェントの `agent.<name>.model` フィールドは `sync_models.sh` が source of truth（`models.tsv`）から生成・上書きします。
+- 上記フィールドを手編集しても、次回同期時に上書きされます。
+
+それ以外の設定を変更する場合は、上記2つのセクションの方針（同期スクリプトを介した管理）を参考にシステムを構築してから実装してください。
 
 ## prompts
-opencode.jsonのpromptを直接編集せず、promptsディレクトリを編集して、sync_models.shでopencode.jsonへ同期してください。
+opencode.jsonのpromptを直接編集せず、promptsディレクトリを編集して、sync_prompts.shでopencode.jsonへ同期してください。
+
+### Prompt contract（sync_prompts.shが依存するファイル形式）
+`prompts/<agent-name>.md` には必ず以下の見出しを含めてください。
+
+```
+## Prompt
+```
+
+`sync_prompts.sh` はこの見出し以降のテキストのみを抽出して `agent.<name>.prompt` へ書き込みます。
+この見出しが存在しない、または見出し以降が空の場合、そのファイルはスキップされ同期されません（エラーにはならず警告のみ出力）。
 
 ## models
 opencode.jsonのmodelを直接編集せず、models.tsvを編集して、sync_models.shでopencode.jsonへ同期してください。
