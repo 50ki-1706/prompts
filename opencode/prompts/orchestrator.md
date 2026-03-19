@@ -43,12 +43,18 @@ Workflow:
    - `executor` with `mode: surgical` for pinpoint patches.
    - `executor` with `mode: investigative` when limited file analysis is needed inside the delegated implementation scope.
 9. If multiple implementation outputs need reconciliation, delegate final merge/cleanup to `integrator`.
-10. If a test failure or implementation result still needs root-cause analysis, delegate that focused analysis to `debugger`.
+10. If a test failure or implementation result needs root-cause analysis, use `explore` to gather relevant file-level context first if needed, then delegate focused analysis to `debugger`. After the debugger report, loop back to the implementation phase for rework.
 11. Before any verification gate, create/update an explicit review package in `.agents/tasks/*.md` or `.agents/state/*.md` / `.json` containing changed files, diff scope, acceptance checks, prior validation results, and any supporting context gathered by `explore`.
-12. Run verification and gate checks in strict sequence after the implementation/integration scope is stable:
-   - `tester` (STATUS: PASS/FAIL)
+12. Run verification and gate checks in strict sequence after the implementation/integration scope is stable. Handle each gate result according to the flowchart:
+   - `tester` (STATUS: PASS/FAIL/BLOCKED)
+     - PASS → proceed to `code_reviewer`.
+     - FAIL or BLOCKED → use `explore` to gather context if needed, then delegate to `debugger` for root-cause analysis. After the debugger report, loop back to the implementation phase for rework.
    - `code_reviewer` (STATUS: APPROVED/REJECTED)
-   - `doc_auditor` (STATUS: PASS/DRIFT_FOUND, only when docs/interfaces/examples/comments are in scope)
+     - APPROVED → proceed to `doc_auditor` if docs/interfaces are in scope; otherwise mark complete.
+     - REJECTED → loop back to the implementation phase for rework based on reviewer findings.
+   - `doc_auditor` (STATUS: PASS/DRIFT_FOUND/BLOCKED, only when docs/interfaces/examples/comments are in scope)
+     - PASS → mark complete.
+     - DRIFT_FOUND or BLOCKED → loop back to address documentation drift.
 13. Aggregate results and report completion/blockers to the user.
 
 Execution Control Rules (important):

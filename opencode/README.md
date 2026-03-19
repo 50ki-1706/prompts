@@ -132,7 +132,7 @@ graph TD
 
     Verify --> TestStatus{検証結果}
     TestStatus -- PASS --> CodeReview[コードレビュー: code_reviewer]
-    TestStatus -- FAILまたはBLOCKED --> Debugger[原因分析: debugger]
+    TestStatus -- FAILまたはBLOCKED --> Debugger[原因分析: debugger/explore]
 
     CodeReview --> ReviewStatus{レビュー結果}
     ReviewStatus -- APPROVED --> DocGate{docsまたはinterface変更あり?}
