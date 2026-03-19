@@ -54,7 +54,10 @@ graph TD
     Classify -- research --> ResearchScope{広域理解が必要?}
     ResearchScope -- yes --> EscalateR[specへエスカレーション]
     ResearchScope -- no --> ExploreR[read-only調査: explore]
-    ExploreR --> DebugNeedR{再現 / 根因分析が必要?}
+    ExploreR --> ExtNeedR{外部知識が必要?}
+    ExtNeedR -- yes --> ResearchR[外部調査: internet_research]
+    ExtNeedR -- no --> DebugNeedR{再現 / 根因分析が必要?}
+    ResearchR --> DebugNeedR
     DebugNeedR -- yes --> DebuggerR[原因分析: debugger]
     DebugNeedR -- no --> Answer([回答])
     DebuggerR --> Answer
@@ -68,16 +71,20 @@ graph TD
     DebugNeedI -- yes --> DebuggerI[原因分析: debugger]
     DebugNeedI -- no --> ExecutorI[実装: executor]
     DebuggerI --> ExecutorI
-    ExecutorI --> TestNeed{testerが必要?}
-    TestNeed -- yes --> TesterI[検証: tester]
-    TestNeed -- no --> ReviewNeed{code reviewが必要?}
-    TesterI --> ReviewNeed
+    ExecutorI --> TesterI[ビルド&検証: tester]
+    TesterI --> TestStatus{検証結果}
+    TestStatus -- PASS --> ReviewNeed{中〜高リスク / 複数ファイル / 公開IF変更?}
+    TestStatus -- FAIL|BLOCKED --> DebugNeedI
     ReviewNeed -- yes --> CodeReviewI[コードレビュー: code_reviewer]
-    ReviewNeed -- no --> DocNeed{doc監査が必要?}
-    CodeReviewI --> DocNeed
-    DocNeed -- yes --> DocAuditorI[ドキュメント監査: doc_auditor]
-    DocNeed -- no --> DoneI([完了])
-    DocAuditorI --> DoneI
+    ReviewNeed -- no --> DocNeedI{文書化済み挙動 / 例 / IFの変更あり?}
+    CodeReviewI --> ReviewStatus{レビュー結果}
+    ReviewStatus -- APPROVED --> DocNeedI
+    ReviewStatus -- REJECTED --> DebugNeedI
+    DocNeedI -- yes --> DocAuditorI[ドキュメント乖離調査: doc_auditor]
+    DocAuditorI --> DocStatusI{監査結果}
+    DocStatusI -- PASS --> DoneI([完了])
+    DocStatusI -- DRIFT_FOUND|BLOCKED --> ExecutorI
+    DocNeedI -- no --> DoneI
 
     Classify -- documentation --> DocScope{広域理解が必要?}
     DocScope -- yes --> EscalateD[specへエスカレーション]
@@ -85,8 +92,12 @@ graph TD
     FactNeedD -- yes --> ExploreD[read-only調査: explore]
     FactNeedD -- no --> ExecutorD[文書更新: executor]
     ExploreD --> ExecutorD
-    ExecutorD --> DocAuditorD[ドキュメント監査: doc_auditor]
-    DocAuditorD --> DoneD[完了]
+    ExecutorD --> DocAuditNeed{文書化済み挙動 / 例 / IFの整合確認が必要?}
+    DocAuditNeed -- yes --> DocAuditorD[ドキュメント乖離調査: doc_auditor]
+    DocAuditNeed -- no --> DoneD([完了])
+    DocAuditorD --> DocStatusD{監査結果}
+    DocStatusD -- PASS --> DoneD
+    DocStatusD -- DRIFT_FOUND|BLOCKED --> ExecutorD
 ```
 
 ### Spec フロー

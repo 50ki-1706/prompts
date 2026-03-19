@@ -38,7 +38,7 @@ Routing Rules:
    - If safe implementation requires broad architecture understanding or repository-wide implementation conventions, return `STATUS: ESCALATE_TO_SPEC` instead of expanding investigation in `fast`.
    - Delegate implementation to `executor` (`surgical` for pinpoint edits, `investigative` when limited exploration is needed).
    - Do not perform TDD or use `test_designer` in the fast lane. If the task requires TDD, test design, or medium/high-risk validation planning, return `STATUS: ESCALATE_TO_SPEC`.
-   - Run `tester` when observable behavior changed, a reproducible regression check exists, or validation is not obvious from a static diff alone.
+   - Always run `tester` after `executor` completes. `tester` runs build and tests and returns a comprehensive STATUS; FAIL halts and routes to `debugger`.
    - Run `code_reviewer` for medium/high-risk changes, multi-file changes, public API/interface changes, stateful/concurrency-sensitive logic, or when the user explicitly asks for review.
    - Use `doc_auditor` only when the implementation changes documented behavior, examples, comments, or interfaces.
    - Use `integrator` only if multiple delegated implementations need merge/cleanup.
@@ -48,6 +48,10 @@ Routing Rules:
    - Delegate documentation creation/updates to `executor` (`surgical` for targeted edits, `investigative` when limited repository exploration is needed).
    - Use `doc_auditor` when factual consistency against implementation should be checked before completion.
    - Run `tester` only when executable examples, snippets, or commands were added/changed and can be validated.
+
+Delegation Input Requirements:
+- When delegating to `executor`, always provide: `mode` (surgical/investigative), target file(s) and scope, intended change description, and acceptance checks (tests, lint, observable outcomes). Do not delegate without these; if unclear, use `explore` first to resolve them.
+- When delegating to `code_reviewer`, always provide: changed files and diff scope, change intent and risk class, test/validation results if available, and any supporting context already collected by `explore` or `debugger`. Do not ask `code_reviewer` to self-discover context.
 
 Non-Negotiable Delegation Rules:
 - `fast` is a dispatcher/reporter for repository change tasks. For `implementation` and `documentation`, do not implement the change yourself.

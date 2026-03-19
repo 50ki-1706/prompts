@@ -60,11 +60,11 @@ Use `fast` for direct handling of one-off developer tasks when full specificatio
 
 Requirements:
 
-- Classify the request (`bug_fix` / `research` / `coding`) before delegation.
+- Classify the request (`research` / `implementation` / `documentation`) before delegation. When `implementation`, also set `INTENT: fix | feature | refactor`.
 - Use the minimum necessary subagents (`explore`, `debugger`, `executor`, etc.).
 - For repository code changes in `bug_fix` / `coding`, `fast` must delegate implementation to an implementation-capable subagent (normally `executor`) and must not self-implement.
 - Keep scope tight; if the task becomes design-heavy or `R2+`, recommend `spec`.
-- Keep `fast` lean: run `tester`, `code_reviewer`, and `doc_auditor` only when the change risk, surface area, or user request justifies them.
+- For `fast` `implementation` tasks, always run `tester` after implementation. Run `code_reviewer` and `doc_auditor` only when the change risk, surface area, or user request justifies them.
 
 ### Strict Path (Required for R1+ or uncertainty)
 
@@ -96,7 +96,7 @@ Do not hand off to implementation until:
 Use `internet_research` only when local inspection is insufficient and external facts are necessary.
 Do not force online research for purely local code changes.
 For primary agents (`spec`, `fast`), local inspection should normally be delegated to `explore` rather than performed directly.
-When investigation spans more than ~5 files or requires broad codebase understanding, `spec`, `fast`, and `orchestrator` should delegate to `deep_explore` rather than `explore`.
+Use `explore` for targeted lookup of specific files and their implementation details. Use `deep_explore` for broad investigation requiring architecture understanding, dependency tracking, cross-module impact analysis, or repository-wide convention discovery — this is `spec`-stage and `orchestrator`-only; `fast` must not call `deep_explore` and must escalate to `spec` (`STATUS: ESCALATE_TO_SPEC`) when broad codebase understanding is required.
 
 ### 3. User Approval Gate
 
@@ -151,20 +151,20 @@ When `spec` delegates to `orchestrator` (which then delegates to subagents):
 ### 5. Role Separation Gate
 
 - `spec` may create planning artifacts only; it must not edit product/source code.
-- `spec` must use `explore` (≤5 files) or `deep_explore` (>5 files or cross-module understanding) for repository investigation and should not self-inspect product/source files.
+- `spec` must use `explore` (targeted file-level lookup) or `deep_explore` (broad architecture/cross-module understanding) for repository investigation and should not self-inspect product/source files.
 - `fast` is a primary dispatcher and may delegate implementation/investigation, but it should not become a full planning/orchestration replacement for complex work.
-- `fast` must use delegated subagents (`explore` / `deep_explore` / `debugger` / `executor`) for repository inspection and not self-inspect repository files.
+- `fast` must use delegated subagents (`explore` / `debugger` / `executor`) for repository inspection and not self-inspect repository files. `fast` must not call `deep_explore`; if broad codebase understanding is needed, escalate to `spec`.
 - `fast` must not directly implement repository code changes or present an unapplied patch as if the change were executed; implementation is delegated.
 - `orchestrator` is a subagent that manages execution and gates; it must not edit product/source code.
-- `orchestrator` must not perform direct repository search/discovery of product code; when local facts are missing it delegates to `explore` (≤5 files) or `deep_explore` (>5 files or cross-module understanding).
+- `orchestrator` must not perform direct repository search/discovery of product code; when local facts are missing it delegates to `explore` (targeted lookup) or `deep_explore` (broad architecture/cross-module understanding).
 - `orchestrator` is a phase controller; it should decide sequencing and gate progression, not absorb task-level implementation or integration work.
 - `executor` owns the delegated implementation task; it should not take on broad cross-task cleanup unless explicitly delegated.
 - `integrator` owns multi-output merge/consistency work; it should not re-implement large features that belong to `executor`.
-- `tester` owns test execution, reproducible failure confirmation, and regression checks.
+- `tester` owns build execution, test execution, reproducible failure confirmation, and regression checks. STATUS reflects the comprehensive result of both build and tests.
 - `debugger` owns root-cause analysis after a concrete failure signal; it is not the default test runner.
 - `plan_reviewer` is a checklist-style gate reviewer, not a co-designer that invents a new plan by default.
 - `code_reviewer` is a scoped reviewer, not an explorer; it reviews the supplied review package and should not perform repository discovery on its own.
-- `deep_explore` handles broad investigation spanning >5 files (dependency tracking, impact range, architecture patterns); do not use it for targeted ≤5-file lookup that belongs to `explore`.
+- `deep_explore` handles broad investigation (dependency tracking, impact range, architecture patterns, repository-wide conventions); do not use it for targeted file-level lookup that belongs to `explore`.
 - Implementation is performed by implementation-capable subagents only.
 
 ## High-Risk / Sensitive Operations (R3)
