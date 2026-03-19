@@ -1,88 +1,36 @@
 # opencode config
 
 
-## symlink(ubuntu)
-```bash
-ln -s ~/Dev/Tools/prompts/opencode/AGENTS.md  ~/.config/opencode
-ln -s ~/Dev/Tools/prompts/opencode/opencode.json ~/.config/opencode
-ln -s ~/Dev/Tools/prompts/opencode/prompts ~/.config/opencode/prompts
-```
-## opencode-sync-prompts(~/.local/bin/opencode-sync-prompts)
-
-`prompts/*.md` を prompt の真実源（source of truth）として扱い、`opencode.json` の `agent.*.prompt` を同期するシェルスクリプトです。
-agent の prompt を変更する場合は、先に `prompts/` 配下を編集してから同期してください。
+## セットアップ(ubuntu)
 
 ```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-CONFIG="${HOME}/.config/opencode/opencode.json"
-PROMPTS_DIR="${HOME}/.config/opencode/prompts"
-tmp="$(mktemp)"
-
-if [[ ! -f "${CONFIG}" ]]; then
-  echo "Config not found: ${CONFIG}" >&2
-  exit 1
-fi
-
-if [[ ! -d "${PROMPTS_DIR}" ]]; then
-  echo "Prompts directory not found: ${PROMPTS_DIR}" >&2
-  exit 1
-fi
-
-if ! command -v jq >/dev/null 2>&1; then
-  echo "jq is required but not installed" >&2
-  exit 1
-fi
-
-trap 'rm -f "${tmp}"' EXIT
-
-# jq 引数とフィルタの組み立て
-ARGS=()
-FILTER='.'
-updated=0
-
-# Markdownファイルごとにプロンプトを抽出して jq 引数に追加
-for f in "${PROMPTS_DIR}"/*.md; do
-  [[ -f "$f" ]] || continue
-
-  name=$(basename "$f" .md)
-
-  if ! jq -e --arg name "$name" '.agent[$name] != null' "${CONFIG}" >/dev/null; then
-    echo "Skip unknown agent markdown: ${f}" >&2
-    continue
-  fi
-  
-  # ## Prompt 以降を抽出し、先頭・末尾の空行を削除
-  content=$(awk '
-    BEGIN {in_prompt=0}
-    /^## Prompt[[:space:]]*$/ {in_prompt=1; next}
-    in_prompt {print}
-  ' "$f")
-
-  content=$(printf '%s\n' "$content" | sed '/./,$!d' | tac | sed '/./,$!d' | tac)
-
-  if [[ -z "$content" ]]; then
-    echo "Skip empty prompt body: ${f}" >&2
-    continue
-  fi
-  
-  ARGS+=(--arg "p_${name}" "$content")
-  FILTER+=" | .agent[\"${name}\"].prompt = \$p_${name}"
-  updated=$((updated + 1))
-done
-
-if [[ "$updated" -eq 0 ]]; then
-  echo "No prompts were updated. Ensure markdown files contain a '## Prompt' section and match agent keys." >&2
-  exit 1
-fi
-
-# jq を一回だけ実行して更新
-jq "${ARGS[@]}" "$FILTER" "${CONFIG}" > "${tmp}"
-
-mv "${tmp}" "${CONFIG}"
-echo "Synced all prompts from ${PROMPTS_DIR} into ${CONFIG}"
+mkdir -p ~/.config/opencode
+ln -s ~/prompts/opencode/AGENTS.md      ~/.config/opencode/AGENTS.md
+ln -s ~/prompts/opencode/opencode.json  ~/.config/opencode/opencode.json
 ```
+
+## opencode.json の編集について
+
+**`opencode.json` を直接編集しないでください。** 以下の同期スクリプトを使用してください。
+
+### プロンプトの同期
+
+`prompts/*.md` の `## Prompt` 以降が source of truth です。編集後に同期します。
+
+```bash
+./sync_prompts.sh
+```
+
+### モデルの同期
+
+`models.tsv` が source of truth です。編集後に同期します。
+
+```bash
+./sync_models.sh           # 同期実行
+./sync_models.sh --dry-run  # 変更内容の確認のみ
+```
+
+直接 `opencode.json` の `model` / `small_model` / `agent.*.model` / `agent.*.prompt` を編集しても、次回同期時に上書きされます。
 
 ## Model Context Protocol (MCP)
 
@@ -111,23 +59,15 @@ graph TD
     DebugNeedR -- no --> Answer([回答])
     DebuggerR --> Answer
 
-    Classify -- implementation --> ImplScope{fastで安全に扱える?}
+    Classify -- implementation --> ImplScope{小規模fix/feature/refactorか?}
     ImplScope -- no --> EscalateI[specへエスカレーション]
     ImplScope -- yes --> FactNeedI{局所調査が必要?}
     FactNeedI -- yes --> ExploreI[read-only調査: explore]
     FactNeedI -- no --> DebugNeedI{再現 / 根因分析が必要?}
     ExploreI --> DebugNeedI
     DebugNeedI -- yes --> DebuggerI[原因分析: debugger]
-    DebugNeedI -- no --> TestDesignNeed{TDD / 中高リスク / validation scope不明?}
-    DebuggerI --> TestDesignNeed
-    TestDesignNeed -- yes --> TestDesigner[test_designer]
-    TestDesignNeed -- no --> ExecutorI[実装: executor]
-    TestDesigner --> TestPlanReviewI[テスト計画レビュー: plan_reviewer]
-    TestPlanReviewI --> TestPlanStatusI{テスト計画承認}
-    TestPlanStatusI -- REJECTED --> TestDesigner
-    TestPlanStatusI -- APPROVED --> TDDGateI{TDDを実施するか?}
-    TDDGateI -- yes --> ExecutorI
-    TDDGateI -- no --> ExecutorI
+    DebugNeedI -- no --> ExecutorI[実装: executor]
+    DebuggerI --> ExecutorI
     ExecutorI --> TestNeed{testerが必要?}
     TestNeed -- yes --> TesterI[検証: tester]
     TestNeed -- no --> ReviewNeed{code reviewが必要?}
@@ -145,13 +85,8 @@ graph TD
     FactNeedD -- yes --> ExploreD[read-only調査: explore]
     FactNeedD -- no --> ExecutorD[文書更新: executor]
     ExploreD --> ExecutorD
-    ExecutorD --> ExampleNeed{実行例の検証が必要?}
-    ExampleNeed -- yes --> TesterD[検証: tester]
-    ExampleNeed -- no --> AuditNeed{整合性監査が必要?}
-    TesterD --> AuditNeed
-    AuditNeed -- yes --> DocAuditorD[ドキュメント監査: doc_auditor]
-    AuditNeed -- no --> DoneD([完了])
-    DocAuditorD --> DoneD
+    ExecutorD --> DocAuditorD[ドキュメント監査: doc_auditor]
+    DocAuditorD --> DoneD[完了]
 ```
 
 ### Spec フロー
@@ -160,16 +95,14 @@ graph TD
 graph TD
     Start([開発開始]) --> Spec[仕様定義・計画: spec]
 
-    Spec --> ExploreNeed{局所調査が必要?}
-    ExploreNeed -- yes --> Explore[read-only調査: explore]
-    ExploreNeed -- no --> DeepNeed{広域理解が必要?}
-    Explore --> DeepNeed
-    DeepNeed -- yes --> DeepExplore[広域調査: deep_explore]
-    DeepNeed -- no --> ResearchNeed{外部知識が必要?}
-    DeepExplore --> ResearchNeed
-    ResearchNeed -- yes --> Research[外部調査: internet_research]
-    ResearchNeed -- no --> Plan[計画作成: spec]
-    Research --> Plan
+    Spec --> InvestigateLoop{調査が必要?}
+    InvestigateLoop -- 局所調査 --> Explore[read-only調査: explore]
+    InvestigateLoop -- 広域調査 --> DeepExplore[広域調査: deep_explore]
+    InvestigateLoop -- 外部知識 --> Research[外部調査: internet_research]
+    InvestigateLoop -- 十分 --> Plan[計画作成: spec]
+    Explore --> InvestigateLoop
+    DeepExplore --> InvestigateLoop
+    Research --> InvestigateLoop
 
     Plan --> PlanReview[計画レビュー: plan_reviewer]
     PlanReview --> PlanStatus{計画承認}
@@ -223,9 +156,11 @@ graph TD
 
 ## エージェント構成
 
+> **モデルの変更は `models.tsv` を編集し `./sync_models.sh` で同期してください。`opencode.json` を直接編集しないでください。**
+
 ### 1. クイック実行フェーズ（メイン：fast）
 - **fast (Primary)**: 単発のコード調査・小さな実装変更・ドキュメント生成/更新向けの高速エージェント。依頼を `research / implementation / documentation` に分類し、実装系では `INTENT: fix | feature | refactor` と `NEEDS_DEBUGGER: yes | no` を付けた上で、必要最小限のサブエージェントへ委譲する。（モデル: `anthropic/claude-sonnet-4-6`）
-- `fast` は軽量経路を優先し、`code_reviewer` と `doc_auditor` は常設ではなく条件付きで起動する。
+- `fast` は軽量経路を優先し、`code_reviewer` と `doc_auditor` は常設ではなく条件付きで起動する。TDD やテスト設計（`test_designer` / `plan_reviewer`）は `fast` では行わず、必要な場合は `spec` へエスカレーションする。
 
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `anthropic/claude-opus-4-6`）
