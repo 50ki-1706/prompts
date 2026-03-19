@@ -113,7 +113,7 @@ graph TD
 
     subgraph Planning Phase
         spec --> explore
-        spec -. "R2+調査時" .-> deep_explore
+        spec -. "広域アーキテクチャ/実装慣習の把握時" .-> deep_explore
         spec --> research[internet_research]
         spec --> plan_rev[plan_reviewer]
     end
@@ -121,7 +121,6 @@ graph TD
     spec -- "y承認後に自動委譲" --> orch[orchestrator/Subagent]
 
     orch -. "必要時" .-> explore
-    orch -. "R2+調査時" .-> deep_explore
 
     subgraph Test Strategy & Implementation Phase
         orch -. "TDD・中/高リスク・validation scope不明時" .-> test_des[test_designer]
@@ -145,15 +144,15 @@ graph TD
 
 ### 2. 仕様策定と計画フェーズ（メイン：spec）
 - **spec (Primary)**: 仕様策定・計画専任。ユーザー要求を「意思決定済みの実行可能計画」に変換し、計画成果物のみを作成する。（モデル: `anthropic/claude-opus-4-6`）
-- **explore (Subagent)**: 共通のコードベース調査（read-only）。`fast` / `spec` / `orchestrator` が必要なローカル事実確認を委譲する。（モデル: `google/gemini-3.1-flash-lite-preview`）
-- **deep_explore (Subagent)**: 大規模・横断的コードベース調査。調査対象が6ファイル以上、またはモジュール間の依存関係・アーキテクチャ理解が必要な場合に `fast` / `spec` / `orchestrator` が使用する。（モデル: `openai/gpt-5.3-codex`）
+- **explore (Subagent)**: 共通のコードベース調査（read-only）。`fast` / `spec` / `orchestrator` が、対象ファイルの実装詳細・制御フロー・インターフェース・局所的な実装慣習を確認するために使う。（モデル: `google/gemini-3.1-flash-lite-preview`）
+- **deep_explore (Subagent)**: `spec` 段階専用の大規模・横断的コードベース調査。膨大なコードベースから依存関係、アーキテクチャ、実装慣習を把握し、計画に必要な前提を固めるために使う。（モデル: `openai/gpt-5.3-codex`）
 - **internet_research (Subagent)**: 外部リサーチ。ローカル調査で不足する外部知識のみを対象に、情報源付きで調査する。（モデル: `google/gemini-3.1-flash-lite-preview`）
 - **plan_reviewer (Subagent)**: 計画書/テスト仕様書の厳格レビュー。`STATUS: APPROVED | REJECTED` を返すゲート判定役。（モデル: `openai/gpt-5.3-codex`）
 - `plan_reviewer` は別案を作る役ではなく、計画の抜け漏れと実行可能性を採点するチェック役として扱う。
 
 ### 3. 実装オーケストレーション/統合フェーズ（司令塔：orchestrator / 呼び出し元：spec）
 - **orchestrator (Subagent)**: 実行制御とゲート管理（司令塔）。`spec` から自動的に呼び出され、承認済み計画をタスクに分解し、フェーズ順序と次に呼ぶサブエージェントを決める。プロダクトコードは編集しない。（モデル: `opencode/glm-5`）
-- `orchestrator` は司令塔であり、プロダクトコードの探索も直接行わない。追加のローカル事実が必要な場合は `explore` に委譲する。
+- `orchestrator` は司令塔であり、プロダクトコードの探索も直接行わない。追加のローカル事実が必要な場合は `explore` に委譲し、広域アーキテクチャ理解が不足している場合は実行中に `deep_explore` で補わず `spec` に戻して計画を補正する。
 - **executor (Subagent)**: 単一タスクの実装担当。`mode: surgical`（局所修正）と `mode: investigative`（必要最小限の調査込み実装）をタスクマニフェストで切り替える。（モデル: `opencode/kimi-k2.5`）
 - **integrator (Subagent)**: 複数成果物の統合作業。変更の接着、競合解消、型/インターフェース整合を担当する。（モデル: `anthropic/claude-sonnet-4-6`）
 - **debugger (Subagent)**: 原因分析専任。失敗シグナルや再現結果を受けて根本原因分析を行い、証拠ベースのレポートを作成する。（モデル: `openai/gpt-5.3-codex`）
@@ -175,18 +174,24 @@ graph TD
 - **fast-path**: `R0`（小さく明確な変更）向け。ローカル調査中心で最小限の計画を作成し、ユーザー承認後に実装へ進む。
 - **fast primary lane (`fast`)**: 単発の調査・小さな実装・ドキュメント生成向け。依頼を `research / implementation / documentation` に分類し、`implementation` では `fix / feature / refactor` を副属性で扱いながら `explore` / `debugger` / `executor` / `tester` / `code_reviewer` / `doc_auditor` などへ最小委譲し、必要なゲートだけを条件付きで実行する。
   - `fast` はリポジトリ調査（ファイル探索・コード読取・構造確認）を自前で行わず、`explore`（または再現調査が必要な場合は `debugger`）へ委譲する。
+  - 広域な依存関係・アーキテクチャ・実装慣習の把握が必要になった場合、`fast` では抱え込まず `spec` に上げて `deep_explore` を使う。
   - `fast` では tiny な単一ファイル修正に対して reviewer/doc audit を常時積まず、変更リスク・公開面影響・ユーザー要求に応じて起動する。
 - **strict-path**: `R1+`、要件不明確、外部知識が必要な変更向け。ドラフト/最終計画・レビュー・検証ゲートを厳格に踏む。
 - 計画主導経路（`fast-path` / `strict-path`）では、ユーザーは `spec` に対して `y/n` で承認するだけでよく、`orchestrator` への切り替え操作は不要。
 
 ### 標準フロー（新構成 / `spec` 主導）
 
-1. **初期調査（read-only）**: `spec` が `explore` を使い、コードベースの事実を収集する（`spec` 自身はリポジトリ調査を直接行わない）。
+補足: 調査サブエージェントの使い分け
+- `explore`: 対象ファイルの実装詳細を確認するための調査役。`spec` / `fast` / `orchestrator` が使う。
+- `deep_explore`: `spec` 段階専用の広域調査役。大規模コードベースの依存関係、アーキテクチャ、実装慣習を把握するために使う。
+- 実装フェーズに入った後で広域理解が不足していると判明した場合は、`orchestrator` が `deep_explore` を呼ばず、`BLOCKED` / `NEEDS_INPUT` として計画側に戻して補う。
+
+1. **初期調査（read-only）**: `spec` が `explore` を使って対象ファイルの事実を収集し、必要に応じて `deep_explore` で広域アーキテクチャや実装慣習を把握する（`spec` 自身はリポジトリ調査を直接行わない）。
 2. **仕様の明確化（Specification Gate）**: 目的、範囲、制約、成功条件を確定する。曖昧さが残る間は実装へ進まない。
 3. **外部知識の確認（Knowledge Gate / 条件付き）**: ローカル調査で不足する場合のみ `internet_research` を使う。
 4. **計画作成（spec）**: `spec` が `.agents/plans/` に計画成果物（draft/final plan、必要なら補足）を作成する。
-5. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
-6. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
+5. **計画レビュー（Review Gate）**: `plan_reviewer` が `STATUS: APPROVED | REJECTED` で判定する。
+6. **ユーザー承認（User Approval Gate）**: 計画を提示し、`y/n` で明示的な承認を得るまで停止する。
 7. **自動移行とフェーズ制御（orchestrator）**: ユーザーが `y` を返したら、`spec` が `orchestrator` を自動的に呼び出す。`orchestrator` はチェックポイント型（短い段階実行）でフェーズ順序・次に呼ぶサブエージェント・ゲート進行を決め、各チェックポイントを `spec` が中継する。
 8. **テスト仕様設計（条件付き / 先行）**: TDD、中〜高リスク変更、またはテスト方針が不明な場合に `test_designer` が先に test-spec を作成する。TDD の場合は続けて `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順で進める。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも実行を停止し `debugger` に委譲してレポートを作成し `NEEDS_INPUT` を返す。自動リトライは行わない。
 9. **実装と統合**: 単一タスクの変更は `executor`、複数成果物の接着・競合解消は `integrator` が担当する。
@@ -203,7 +208,7 @@ graph TD
 - **Test-First Gate（条件付き）**: TDD、中〜高リスク変更、または validation scope が不明な場合に、`test_designer` で期待挙動を固めてから `executor`（テストコード / red phase）→ `tester`（FAIL=期待値）→ `executor`（実装 / green phase）→ `tester`（PASS=期待値）の順を優先すること。red phase で `tester` が PASS した場合（予期しない）、または green phase で `tester` が FAIL した場合（予期しない）は、いずれも halt → `debugger` 委譲 → `.agents/reports/` にレポート → `NEEDS_INPUT` とする。自動リトライ不可。
 - **Review Gate**: reviewer/tester の `STATUS` が成功状態であること。
 - **Role Separation Gate**: `spec` と `orchestrator` はプロダクトコードを編集しないこと。`spec` / `fast` はリポジトリ調査を自前で行わず、`explore`（必要に応じて `debugger`）を使うこと。
-- **Exploration Ownership Gate**: 局所的なリポジトリ探索（grep/glob ベースの発見・横断読取）は `explore` の役割とし、`orchestrator` と `code_reviewer` は必要な事実を委譲または受領して扱うこと。R2+ の依存追跡・影響範囲分析・アーキテクチャ把握は `deep_explore` に委譲すること。
+- **Exploration Ownership Gate**: 局所的なリポジトリ探索（grep/glob ベースの発見・横断読取）と対象ファイルの詳細実装確認は `explore` の役割とし、`orchestrator` と `code_reviewer` は必要な事実を委譲または受領して扱うこと。広域な依存追跡・影響範囲分析・アーキテクチャ把握・実装慣習の整理は `spec` 段階でのみ `deep_explore` に委譲すること。
 - **Boundary Gate**: `executor` は単一タスク実装、`integrator` は複数成果物の接着、`tester` は検証、`debugger` は原因分析、`plan_reviewer` は計画採点に責務を限定すること。
 
 ## 出力契約（Gate判定用）
